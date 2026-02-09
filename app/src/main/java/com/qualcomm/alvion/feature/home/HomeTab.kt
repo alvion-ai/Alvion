@@ -89,10 +89,11 @@ fun HomeTab(
             val uri =
                 RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            if (uri == null) return@remember null
             MediaPlayer().apply {
                 try {
                     setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build())
-                    setDataSource(context, uri!!)
+                    setDataSource(context, uri)
                     prepare()
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -107,12 +108,12 @@ fun HomeTab(
                 onDrowsy = {
                     warnings += 1
                     aiMessage = "Drowsiness detected. Cognitive check required!"
-                    if (soundEnabled && !mediaPlayer.isPlaying) mediaPlayer.start()
+                    if (soundEnabled && mediaPlayer?.isPlaying != true) mediaPlayer?.start()
                 },
                 onDistracted = {
                     warnings += 1
                     aiMessage = "Please stay focused on the road."
-                    if (soundEnabled && !mediaPlayer.isPlaying) mediaPlayer.start()
+                    if (soundEnabled && mediaPlayer?.isPlaying != true) mediaPlayer?.start()
                 },
             )
         }
