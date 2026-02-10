@@ -1,4 +1,4 @@
-package com.qualcomm.alvion.core.ui.components
+package com.qualcomm.alvion.feature.home.components
 
 import android.Manifest
 import android.content.pm.PackageManager

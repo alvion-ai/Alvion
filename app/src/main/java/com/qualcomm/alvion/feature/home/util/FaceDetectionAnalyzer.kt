@@ -1,4 +1,4 @@
-package com.qualcomm.alvion.feature.home.session
+package com.qualcomm.alvion.feature.home.util
 
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
