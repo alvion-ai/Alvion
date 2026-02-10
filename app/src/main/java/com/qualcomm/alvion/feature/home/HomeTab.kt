@@ -514,26 +514,27 @@ private fun formatHMS(s: Int): String = "%02d:%02d:%02d".format(s / 3600, (s % 3
 
 private fun createAlertPlayer(context: Context): MediaPlayer? {
     val uri = Uri.parse("android.resource://${context.packageName}/${R.raw.alert_beep}")
-    return MediaPlayer().apply {
-        try {
-            val attributes =
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-            setAudioAttributes(attributes)
-            setDataSource(context, uri)
-            isLooping = false
-            setOnCompletionListener { it.seekTo(0) }
-            setOnErrorListener { _, what, extra ->
-                Log.w("HomeTab", "Alert audio error: what=$what extra=$extra")
-                true
-            }
-            prepare()
-        } catch (e: Exception) {
-            Log.w("HomeTab", "Failed to prepare alert audio", e)
-            return null
+    val player = MediaPlayer()
+    return try {
+        val attributes =
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+        player.setAudioAttributes(attributes)
+        player.setDataSource(context, uri)
+        player.isLooping = false
+        player.setOnCompletionListener { it.seekTo(0) }
+        player.setOnErrorListener { _, what, extra ->
+            Log.w("HomeTab", "Alert audio error: what=$what extra=$extra")
+            true
         }
+        player.prepare()
+        player
+    } catch (e: Exception) {
+        Log.w("HomeTab", "Failed to prepare alert audio", e)
+        player.release()
+        null
     }
 }
 
