@@ -6,8 +6,14 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.google.mlkit.vision.face.Face
 import com.qualcomm.alvion.R
 import com.qualcomm.alvion.feature.home.components.CameraPreviewBox
+import com.qualcomm.alvion.feature.home.components.FaceOverlayState
 import com.qualcomm.alvion.feature.home.components.GraphicOverlay
 import com.qualcomm.alvion.feature.home.util.FaceDetectionAnalyzer
 import kotlinx.coroutines.delay
@@ -56,9 +62,17 @@ fun HomeTab(
     val secondaryCyan = Color(0xFF06B6D4)
     val surfaceLight = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
 
+    val useFrontCamera = true
+
     var isSessionActive by remember { mutableStateOf(false) }
     var soundEnabled by remember { mutableStateOf(true) }
+    val soundEnabledState by rememberUpdatedState(soundEnabled)
+
     var faces by remember { mutableStateOf<List<Face>>(emptyList()) }
+    var overlayState by remember {
+        mutableStateOf(FaceOverlayState(isFrontCamera = useFrontCamera))
+    }
+
     var warnings by remember { mutableIntStateOf(0) }
     var speedKmh by remember { mutableIntStateOf(92) }
     var elapsedSeconds by remember { mutableIntStateOf(0) }
@@ -92,8 +106,14 @@ fun HomeTab(
             if (uri == null) return@remember null
             MediaPlayer().apply {
                 try {
-                    setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build())
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build(),
+                    )
                     setDataSource(context, uri)
+                    isLooping = false
                     prepare()
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -101,19 +121,62 @@ fun HomeTab(
             }
         }
 
+    fun playAlert() {
+        if (!soundEnabledState) return
+        try {
+            mediaPlayer?.let {
+                // Always replay reliably
+                it.seekTo(0)
+                if (!it.isPlaying) {
+                    it.start()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        mediaPlayer?.setOnCompletionListener {
+            try {
+                it.seekTo(0)
+            } catch (_: Exception) {
+            }
+        }
+        onDispose {
+            try {
+                if (mediaPlayer?.isPlaying == true) mediaPlayer.stop()
+            } catch (_: Exception) {
+            }
+            try {
+                mediaPlayer?.release()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     val faceDetectionAnalyzer =
         remember {
             FaceDetectionAnalyzer(
-                onFacesDetected = { faces = it },
+                onFrame = { detectedFaces, uprightW, uprightH ->
+                    faces = detectedFaces
+                    overlayState =
+                        overlayState.copy(
+                            rects = detectedFaces.map { it.boundingBox },
+                            imageWidth = uprightW,
+                            imageHeight = uprightH,
+                            isFrontCamera = useFrontCamera,
+                        )
+                },
                 onDrowsy = {
                     warnings += 1
                     aiMessage = "Drowsiness detected. Cognitive check required!"
-                    if (soundEnabled && mediaPlayer?.isPlaying != true) mediaPlayer?.start()
+                    playAlert()
                 },
                 onDistracted = {
                     warnings += 1
                     aiMessage = "Please stay focused on the road."
-                    if (soundEnabled && mediaPlayer?.isPlaying != true) mediaPlayer?.start()
+                    playAlert()
                 },
             )
         }
@@ -171,7 +234,10 @@ fun HomeTab(
 
                 IconButton(
                     onClick = { soundEnabled = !soundEnabled },
-                    modifier = Modifier.clip(CircleShape).background(if (soundEnabled) primaryBlue.copy(0.1f) else Color.Transparent),
+                    modifier =
+                        Modifier
+                            .clip(CircleShape)
+                            .background(if (soundEnabled) primaryBlue.copy(0.1f) else Color.Transparent),
                 ) {
                     Icon(
                         imageVector = if (soundEnabled) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
@@ -215,9 +281,11 @@ fun HomeTab(
                             Box(modifier = Modifier.fillMaxSize()) {
                                 CameraPreviewBox(
                                     modifier = Modifier.fillMaxSize(),
+                                    useFrontCamera = useFrontCamera,
                                     analyzer = faceDetectionAnalyzer,
-                                    faces = faces,
-                                    graphicOverlay = { GraphicOverlay(faces = it) },
+                                    graphicOverlay = {
+                                        GraphicOverlay(state = overlayState)
+                                    },
                                 )
 
                                 // Floating End Button inside Camera View
@@ -275,7 +343,6 @@ fun HomeTab(
                                 Text("Start Trip", fontWeight = FontWeight.Bold)
                             }
                         } else {
-                            // Use Crossfade for smooth swapping between Idle and Warning
                             Crossfade(targetState = aiMessage, animationSpec = tween(500)) { message ->
                                 if (message != null) {
                                     Surface(
@@ -340,7 +407,14 @@ fun HomeTab(
                         label = "Alertness",
                         value = if (warnings == 0) "Optimal" else if (warnings < 3) "Caution" else "Low",
                         icon = Icons.Default.Visibility,
-                        color = if (warnings == 0) Color(0xFF10B981) else if (warnings < 3) Color(0xFFF59E0B) else Color(0xFFEF4444),
+                        color =
+                            if (warnings == 0) {
+                                Color(0xFF10B981)
+                            } else if (warnings < 3) {
+                                Color(0xFFF59E0B)
+                            } else {
+                                Color(0xFFEF4444)
+                            },
                         modifier = Modifier.weight(1f),
                     )
                     MetricCardModern(
@@ -482,7 +556,10 @@ internal fun makeEmergencyCall(
     number: String,
 ) {
     try {
-        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(
+            Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
     } catch (e: Exception) {
         e.printStackTrace()
     }
