@@ -11,6 +11,7 @@ class FaceDetectionAnalyzer(
     private val onFacesDetected: (List<Face>) -> Unit,
     private val onDrowsy: () -> Unit,
     private val onDistracted: () -> Unit,
+    private val onImageDimensions: (width: Int, height: Int) -> Unit,
 ) : ImageAnalysis.Analyzer {
     private var drowsinessCounter = 0
     private var distractionCounter = 0
@@ -27,7 +28,12 @@ class FaceDetectionAnalyzer(
     override fun analyze(imageProxy: ImageProxy) {
         val mediaImage = imageProxy.image
         if (mediaImage != null) {
-            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+            val rotation = imageProxy.imageInfo.rotationDegrees
+            val imageWidth = if (rotation == 90 || rotation == 270) imageProxy.height else imageProxy.width
+            val imageHeight = if (rotation == 90 || rotation == 270) imageProxy.width else imageProxy.height
+            onImageDimensions(imageWidth, imageHeight)
+
+            val image = InputImage.fromMediaImage(mediaImage, rotation)
 
             detector.process(image)
                 .addOnSuccessListener { faces ->
