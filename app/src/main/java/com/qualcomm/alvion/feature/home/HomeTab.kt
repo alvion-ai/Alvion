@@ -4,8 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
-import android.media.RingtoneManager
 import android.net.Uri
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -63,6 +62,8 @@ fun HomeTab(
     var speedKmh by remember { mutableIntStateOf(92) }
     var elapsedSeconds by remember { mutableIntStateOf(0) }
     var aiMessage by remember { mutableStateOf<String?>(null) }
+    var imageWidth by remember { mutableIntStateOf(0) }
+    var imageHeight by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(isSessionActive) {
         if (isSessionActive) {
@@ -85,21 +86,22 @@ fun HomeTab(
     }
 
     val mediaPlayer =
-        remember {
-            val uri =
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            if (uri == null) return@remember null
-            MediaPlayer().apply {
-                try {
-                    setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build())
-                    setDataSource(context, uri)
-                    prepare()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+        remember(context) {
+            createAlertPlayer(context)
         }
+
+    DisposableEffect(mediaPlayer) {
+        onDispose {
+            mediaPlayer?.release()
+        }
+    }
+
+    LaunchedEffect(soundEnabled) {
+        if (!soundEnabled) {
+            mediaPlayer?.pause()
+            mediaPlayer?.seekTo(0)
+        }
+    }
 
     val faceDetectionAnalyzer =
         remember {
@@ -108,12 +110,38 @@ fun HomeTab(
                 onDrowsy = {
                     warnings += 1
                     aiMessage = "Drowsiness detected. Cognitive check required!"
-                    if (soundEnabled && mediaPlayer?.isPlaying != true) mediaPlayer?.start()
+                    if (soundEnabled) {
+                        mediaPlayer?.let { player ->
+                            // ONLY start if not already playing. Avoid resetting to 0 every frame.
+                            if (!player.isPlaying) {
+                                try {
+                                    player.start()
+                                } catch (e: IllegalStateException) {
+                                    Log.w("HomeTab", "Alert audio failed to start", e)
+                                }
+                            }
+                        }
+                    }
                 },
                 onDistracted = {
                     warnings += 1
                     aiMessage = "Please stay focused on the road."
-                    if (soundEnabled && mediaPlayer?.isPlaying != true) mediaPlayer?.start()
+                    if (soundEnabled) {
+                        mediaPlayer?.let { player ->
+                            // ONLY start if not already playing. Avoid resetting to 0 every frame.
+                            if (!player.isPlaying) {
+                                try {
+                                    player.start()
+                                } catch (e: IllegalStateException) {
+                                    Log.w("HomeTab", "Alert audio failed to start", e)
+                                }
+                            }
+                        }
+                    }
+                },
+                onImageDimensions = { width, height ->
+                    imageWidth = width
+                    imageHeight = height
                 },
             )
         }
@@ -217,7 +245,14 @@ fun HomeTab(
                                     modifier = Modifier.fillMaxSize(),
                                     analyzer = faceDetectionAnalyzer,
                                     faces = faces,
-                                    graphicOverlay = { GraphicOverlay(faces = it) },
+                                    graphicOverlay = {
+                                        GraphicOverlay(
+                                            faces = it,
+                                            imageWidth = imageWidth,
+                                            imageHeight = imageHeight,
+                                            isFrontCamera = true,
+                                        )
+                                    },
                                 )
 
                                 // Floating End Button inside Camera View
@@ -470,12 +505,37 @@ fun LiveIndicator() {
     )
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(8.dp).clip(CircleShape).background(Color.Red.copy(alpha = alpha)))
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(6.6.dp))
         Text("LIVE", color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }
 
 private fun formatHMS(s: Int): String = "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
+
+private fun createAlertPlayer(context: Context): MediaPlayer? {
+    val uri = Uri.parse("android.resource://${context.packageName}/${R.raw.alert_beep}")
+    return MediaPlayer().apply {
+        try {
+            val attributes =
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            setAudioAttributes(attributes)
+            setDataSource(context, uri)
+            isLooping = false
+            setOnCompletionListener { it.seekTo(0) }
+            setOnErrorListener { _, what, extra ->
+                Log.w("HomeTab", "Alert audio error: what=$what extra=$extra")
+                true
+            }
+            prepare()
+        } catch (e: Exception) {
+            Log.w("HomeTab", "Failed to prepare alert audio", e)
+            return null
+        }
+    }
+}
 
 internal fun makeEmergencyCall(
     context: Context,
