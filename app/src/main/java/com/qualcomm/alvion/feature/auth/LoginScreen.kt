@@ -224,15 +224,16 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     }
 
                     if (errorMessage != null) {
-                        val containerColor = if (isError) 
-                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f) 
-                        else 
+                        val containerColor = if (isError) {
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f)
+                        } else {
                             Color(0xFFE0F2F1).copy(alpha = 0.8f) // Light teal for success
-                        
-                        val contentColor = if (isError)
+                        }
+                        val contentColor = if (isError) {
                             MaterialTheme.colorScheme.onErrorContainer
-                        else
+                        } else {
                             Color(0xFF00695C)
+                        }
 
                         Surface(
                             color = containerColor,
