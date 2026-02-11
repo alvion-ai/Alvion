@@ -142,7 +142,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         text = if (isLogin) "Welcome Back" else "Create Account",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(bottom = 8.dp),
                     )
 
                     OutlinedTextField(
@@ -198,12 +198,12 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                                 }
                             },
                             modifier = Modifier.align(Alignment.End),
-                            contentPadding = PaddingValues(0.dp)
+                            contentPadding = PaddingValues(0.dp),
                         ) {
                             Text(
                                 text = "Forgot Password?",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF2563EB)
+                                color = Color(0xFF2563EB),
                             )
                         }
                     }
@@ -224,16 +224,18 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     }
 
                     if (errorMessage != null) {
-                        val containerColor = if (isError) {
-                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f)
-                        } else {
-                            Color(0xFFE0F2F1).copy(alpha = 0.8f) // Light teal for success
-                        }
-                        val contentColor = if (isError) {
-                            MaterialTheme.colorScheme.onErrorContainer
-                        } else {
-                            Color(0xFF00695C)
-                        }
+                        val containerColor =
+                            if (isError) {
+                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f)
+                            } else {
+                                Color(0xFFE0F2F1).copy(alpha = 0.8f) // Light teal for success
+                            }
+                        val contentColor =
+                            if (isError) {
+                                MaterialTheme.colorScheme.onErrorContainer
+                            } else {
+                                Color(0xFF00695C)
+                            }
 
                         Surface(
                             color = containerColor,
@@ -270,14 +272,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                             if (isLogin) {
                                 auth.signInWithEmailAndPassword(email.trim(), password)
                                     .addOnSuccessListener { onLoginSuccess() }
-                                    .addOnFailureListener { 
+                                    .addOnFailureListener {
                                         errorMessage = it.message
                                         isError = true
                                     }
                             } else {
                                 auth.createUserWithEmailAndPassword(email.trim(), password)
                                     .addOnSuccessListener { onLoginSuccess() }
-                                    .addOnFailureListener { 
+                                    .addOnFailureListener {
                                         errorMessage = it.message
                                         isError = true
                                     }
@@ -314,7 +316,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     )
                 }
             }
-            
+
             // Bottom spacer to ensure scrolling works well with keyboard
             Spacer(modifier = Modifier.height(32.dp))
         }
