@@ -36,6 +36,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     var confirmPassword by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isError by remember { mutableStateOf(true) } // To toggle between error and success styling
 
     val auth = FirebaseAuth.getInstance()
     val scrollState = rememberScrollState()
@@ -62,7 +63,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     .background(Brush.linearGradient(bgGradientColors)),
         )
 
-        // 2. Decorative Blobs (Same as IntroScreen)
+        // 2. Decorative Blobs
         Blob(
             modifier =
                 Modifier
@@ -87,11 +88,15 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     .fillMaxSize()
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .padding(24.dp)
-                    .verticalScroll(scrollState),
+                    .imePadding() // Ensures UI moves up when keyboard shows
+                    .verticalScroll(scrollState)
+                    .padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // Add a spacer at the top to allow Arrangement.Center to work properly with scrolling
+            Spacer(modifier = Modifier.height(32.dp))
+
             // 3. Logo Spotlight
             LogoSpotlight(logoSize = 100.dp)
 
@@ -131,12 +136,13 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp), // Reduced spacing slightly to fit Forgot Password
                 ) {
                     Text(
                         text = if (isLogin) "Welcome Back" else "Create Account",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp),
                     )
 
                     OutlinedTextField(
@@ -173,6 +179,35 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         shape = RoundedCornerShape(12.dp),
                     )
 
+                    if (isLogin) {
+                        TextButton(
+                            onClick = {
+                                if (email.isBlank()) {
+                                    errorMessage = "Please enter your email to reset password"
+                                    isError = true
+                                } else {
+                                    auth.sendPasswordResetEmail(email.trim())
+                                        .addOnSuccessListener {
+                                            errorMessage = "Reset link sent to $email"
+                                            isError = false
+                                        }
+                                        .addOnFailureListener {
+                                            errorMessage = it.message
+                                            isError = true
+                                        }
+                                }
+                            },
+                            modifier = Modifier.align(Alignment.End),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            Text(
+                                text = "Forgot Password?",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF2563EB),
+                            )
+                        }
+                    }
+
                     if (!isLogin) {
                         OutlinedTextField(
                             value = confirmPassword,
@@ -189,14 +224,27 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     }
 
                     if (errorMessage != null) {
+                        val containerColor =
+                            if (isError) {
+                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f)
+                            } else {
+                                Color(0xFFE0F2F1).copy(alpha = 0.8f) // Light teal for success
+                            }
+                        val contentColor =
+                            if (isError) {
+                                MaterialTheme.colorScheme.onErrorContainer
+                            } else {
+                                Color(0xFF00695C)
+                            }
+
                         Surface(
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                            color = containerColor,
                             shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         ) {
                             Text(
                                 text = errorMessage!!,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                color = contentColor,
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(12.dp),
                             )
@@ -207,30 +255,40 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         onClick = {
                             if (email.isBlank() || password.isBlank()) {
                                 errorMessage = "Please fill in all fields"
+                                isError = true
                                 return@Button
                             }
                             if (!isLogin && password != confirmPassword) {
                                 errorMessage = "Passwords do not match"
+                                isError = true
                                 return@Button
                             }
                             if (password.length < 6) {
                                 errorMessage = "Minimum 6 characters required"
+                                isError = true
                                 return@Button
                             }
 
                             if (isLogin) {
                                 auth.signInWithEmailAndPassword(email.trim(), password)
                                     .addOnSuccessListener { onLoginSuccess() }
-                                    .addOnFailureListener { errorMessage = it.message }
+                                    .addOnFailureListener {
+                                        errorMessage = it.message
+                                        isError = true
+                                    }
                             } else {
                                 auth.createUserWithEmailAndPassword(email.trim(), password)
                                     .addOnSuccessListener { onLoginSuccess() }
-                                    .addOnFailureListener { errorMessage = it.message }
+                                    .addOnFailureListener {
+                                        errorMessage = it.message
+                                        isError = true
+                                    }
                             }
                         },
                         modifier =
                             Modifier
                                 .fillMaxWidth()
+                                .padding(top = 8.dp)
                                 .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
@@ -258,6 +316,9 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     )
                 }
             }
+
+            // Bottom spacer to ensure scrolling works well with keyboard
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
