@@ -229,7 +229,7 @@ fun HomeTab(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .height(if (isSessionActive) 450.dp else 220.dp)
+                                .height(if (isSessionActive) 485.dp else 200.dp)
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(
                                     if (isSessionActive) {
@@ -254,6 +254,27 @@ fun HomeTab(
                                         )
                                     },
                                 )
+
+                                // Eye Icon Button - top left
+                                IconButton(
+                                    onClick = {
+                                        // Placeholder for future functionality
+                                        Log.d("HomeTab", "Eye icon clicked")
+                                    },
+                                    modifier =
+                                        Modifier
+                                            .align(Alignment.TopStart)
+                                            .padding(12.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.2f)),
+                                ) {
+                                    Icon(
+                                        Icons.Default.Visibility,
+                                        contentDescription = "Eye Icon",
+                                        modifier = Modifier.size(24.dp),
+                                        tint = Color.White,
+                                    )
+                                }
 
                                 // Floating End Button inside Camera View
                                 SmallFloatingActionButton(
@@ -297,7 +318,7 @@ fun HomeTab(
                     }
 
                     // --- BOTTOM ACTION / MESSAGE AREA ---
-                    Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                    Box(modifier = Modifier.fillMaxWidth().height(80.dp)) {
                         if (!isSessionActive) {
                             Button(
                                 onClick = { isSessionActive = true },
@@ -320,7 +341,7 @@ fun HomeTab(
                                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(0.3f)),
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 16.dp),
+                                            modifier = Modifier.fillMaxSize().padding(16.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.Center,
                                         ) {
@@ -328,12 +349,12 @@ fun HomeTab(
                                                 imageVector = Icons.Default.Warning,
                                                 contentDescription = null,
                                                 tint = Color(0xFFEF4444),
-                                                modifier = Modifier.size(20.dp),
+                                                modifier = Modifier.size(24.dp),
                                             )
                                             Spacer(Modifier.width(12.dp))
                                             Text(
                                                 text = message,
-                                                style = MaterialTheme.typography.bodyMedium,
+                                                style = MaterialTheme.typography.bodyLarge,
                                                 color = Color(0xFFEF4444),
                                                 fontWeight = FontWeight.ExtraBold,
                                                 textAlign = TextAlign.Center,
@@ -351,11 +372,11 @@ fun HomeTab(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.Center,
                                         ) {
-                                            Icon(Icons.Default.Security, null, Modifier.size(16.dp), tint = primaryBlue.copy(0.6f))
+                                            Icon(Icons.Default.Security, null, Modifier.size(20.dp), tint = primaryBlue.copy(0.6f))
                                             Spacer(Modifier.width(8.dp))
                                             Text(
                                                 "System Monitoring Active",
-                                                style = MaterialTheme.typography.bodySmall,
+                                                style = MaterialTheme.typography.bodyMedium,
                                                 color = primaryBlue.copy(0.7f),
                                                 fontWeight = FontWeight.Medium,
                                             )
