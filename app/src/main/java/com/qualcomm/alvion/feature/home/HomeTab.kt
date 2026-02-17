@@ -65,6 +65,31 @@ fun HomeTab(
     var imageWidth by remember { mutableIntStateOf(0) }
     var imageHeight by remember { mutableIntStateOf(0) }
 
+    // Calibration UI state (Phase 1: multi-angle open-eye calibration)
+    var isCalibrating by remember { mutableStateOf(false) }
+    var calibrationStep by remember { mutableIntStateOf(0) } // 0=idle, 1=forward, 2=left, 3=right
+
+    var showCalibrationDialog by remember { mutableStateOf(false) }
+
+    val mediaPlayer =
+        remember(context) {
+            createAlertPlayer(context)
+        }
+
+    fun beepOnce() {
+        if (!soundEnabled) return
+        mediaPlayer?.let { player ->
+            try {
+                // Ensure a single, immediate beep each time we advance steps.
+                player.pause()
+                player.seekTo(0)
+                player.start()
+            } catch (e: IllegalStateException) {
+                Log.w("HomeTab", "Beep failed to play", e)
+            }
+        }
+    }
+
     LaunchedEffect(isSessionActive) {
         if (isSessionActive) {
             elapsedSeconds = 0
@@ -85,10 +110,6 @@ fun HomeTab(
         }
     }
 
-    val mediaPlayer =
-        remember(context) {
-            createAlertPlayer(context)
-        }
 
     DisposableEffect(mediaPlayer) {
         onDispose {
@@ -108,6 +129,7 @@ fun HomeTab(
             FaceDetectionAnalyzer(
                 onFacesDetected = { faces = it },
                 onDrowsy = {
+                    if (isCalibrating) return@FaceDetectionAnalyzer
                     warnings += 1
                     aiMessage = "Drowsiness detected. Cognitive check required!"
                     if (soundEnabled) {
@@ -124,6 +146,7 @@ fun HomeTab(
                     }
                 },
                 onDistracted = {
+                    if (isCalibrating) return@FaceDetectionAnalyzer
                     warnings += 1
                     aiMessage = "Please stay focused on the road."
                     if (soundEnabled) {
@@ -145,6 +168,52 @@ fun HomeTab(
                 },
             )
         }
+
+    // Multi-angle calibration sequence (collect OPEN-eye stats per pose bucket)
+    LaunchedEffect(isCalibrating) {
+        if (!isCalibrating) return@LaunchedEffect
+
+        // Pause normal monitoring alerts during calibration.
+        faceDetectionAnalyzer.setMonitoringEnabled(false)
+
+        // Start analyzer calibration collection
+        faceDetectionAnalyzer.startCalibration(framesPerBucket = 45)
+
+        // Step 1: Forward
+        calibrationStep = 1
+        aiMessage = "Calibration starting. Keep eyes OPEN and look FORWARD. Hold steady."
+        beepOnce()
+        delay(6000)
+
+        // Step 2: Slightly Left
+        calibrationStep = 2
+        aiMessage = "Now turn your HEAD slightly LEFT (keep eyes open, gaze forward)."
+        beepOnce()
+        delay(6000)
+
+        // Step 3: Slightly Right
+        calibrationStep = 3
+        aiMessage = "Now turn your HEAD slightly RIGHT (keep eyes open, gaze forward)."
+        beepOnce()
+        delay(6000)
+
+        // Finish and compute thresholds
+        val ok = faceDetectionAnalyzer.finishCalibration()
+        calibrationStep = 0
+        isCalibrating = false
+
+        // Resume normal monitoring
+        faceDetectionAnalyzer.setMonitoringEnabled(true)
+
+        aiMessage = if (ok) {
+            "Calibration complete. Monitoring updated."
+        } else {
+            "Calibration incomplete. Please retry with better lighting and steady position."
+        }
+
+        // Final completion beep
+        beepOnce()
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // --- SHARED PREMIUM BACKGROUND ---
@@ -365,6 +434,91 @@ fun HomeTab(
                             }
                         }
                     }
+                    // --- CALIBRATION BUTTONS (only visible during session) ---
+                    if (isSessionActive) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            // Phase 1: Multi-angle calibration (pose-aware thresholds)
+                            Button(
+                                onClick = {
+                                    if (!isCalibrating) {
+                                        showCalibrationDialog = true
+                                    }
+                                },
+                                enabled = !isCalibrating,
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isCalibrating) primaryBlue.copy(alpha = 0.2f) else primaryBlue.copy(alpha = 0.12f),
+                                ),
+                            ) {
+                                Icon(Icons.Default.Tune, null, Modifier.size(18.dp), tint = primaryBlue)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = if (isCalibrating) "Calibrating..." else "Multi-angle Calibrate",
+                                    color = primaryBlue,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+
+                            // Keep a quick baseline reset for head-position only
+                            Button(
+                                onClick = {
+                                    faceDetectionAnalyzer.resetCalibration()
+                                    aiMessage = "Position baseline reset. Face forward."
+                                },
+                                enabled = !isCalibrating,
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = secondaryCyan.copy(alpha = 0.2f)),
+                            ) {
+                                Icon(Icons.Default.Refresh, null, Modifier.size(18.dp), tint = secondaryCyan)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Reset Position", color = secondaryCyan, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        // Calibration instruction dialog
+                        if (showCalibrationDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showCalibrationDialog = false },
+                                title = { Text("Multi-angle calibration") },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("You will capture 3 quick poses with your eyes OPEN.")
+                                        Text("• 1 beep: Look forward (hold steady)")
+                                        Text("• 1 beep: Turn head slightly left (keep gaze forward)")
+                                        Text("• 1 beep: Turn head slightly right (keep gaze forward)")
+                                        Text("• Final beep: Calibration complete")
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            "Tip: Keep the phone fixed and move only your head slightly. Use good lighting.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            showCalibrationDialog = false
+                                            isCalibrating = true
+                                        }
+                                    ) {
+                                        Text("Start")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showCalibrationDialog = false }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            )
+                        }
+                    }
+
                 }
             }
 
