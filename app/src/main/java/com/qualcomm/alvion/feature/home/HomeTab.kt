@@ -37,13 +37,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.mlkit.vision.face.Face
 import com.qualcomm.alvion.R
+import com.qualcomm.alvion.feature.history.Alert
+import com.qualcomm.alvion.feature.history.AlertType
+import com.qualcomm.alvion.feature.history.HistoryViewModel
+import com.qualcomm.alvion.feature.history.Trip
 import com.qualcomm.alvion.feature.home.components.CameraPreviewBox
 import com.qualcomm.alvion.feature.home.components.GraphicOverlay
 import com.qualcomm.alvion.feature.home.util.FaceDetectionAnalyzer
 import kotlinx.coroutines.delay
+import java.time.Duration
+import java.time.LocalDate
+import java.time.LocalTime
+import java.util.UUID
+
+const val ALERT_COOLDOWN_SECONDS = 15
 
 @Composable
 fun HomeTab(
+    historyViewModel: HistoryViewModel,
     onSettings: () -> Unit,
     onSummary: () -> Unit,
 ) {
@@ -64,16 +75,35 @@ fun HomeTab(
     var aiMessage by remember { mutableStateOf<String?>(null) }
     var imageWidth by remember { mutableIntStateOf(0) }
     var imageHeight by remember { mutableIntStateOf(0) }
+    var tripStartTime by remember { mutableStateOf<LocalTime?>(null) }
+    val tripAlerts = remember { mutableStateListOf<Alert>() }
+    var lastDrowsyAlert by remember { mutableStateOf<LocalTime?>(null) }
+    var lastDistractedAlert by remember { mutableStateOf<LocalTime?>(null) }
 
     LaunchedEffect(isSessionActive) {
         if (isSessionActive) {
+            tripStartTime = LocalTime.now()
             elapsedSeconds = 0
+            tripAlerts.clear()
+            lastDrowsyAlert = null
+            lastDistractedAlert = null
             while (isSessionActive) {
                 delay(1000)
                 elapsedSeconds += 1
             }
         } else {
             aiMessage = null
+            tripStartTime?.let {
+                val trip = Trip(
+                    date = LocalDate.now(),
+                    startTime = it,
+                    endTime = LocalTime.now(),
+                    duration = formatHMS(elapsedSeconds),
+                    alerts = tripAlerts.toList()
+                )
+                historyViewModel.addTrip(trip)
+            }
+            tripStartTime = null
         }
     }
 
@@ -108,11 +138,10 @@ fun HomeTab(
             FaceDetectionAnalyzer(
                 onFacesDetected = { faces = it },
                 onDrowsy = {
-                    warnings += 1
+                    val now = LocalTime.now()
                     aiMessage = "Drowsiness detected. Cognitive check required!"
                     if (soundEnabled) {
                         mediaPlayer?.let { player ->
-                            // ONLY start if not already playing. Avoid resetting to 0 every frame.
                             if (!player.isPlaying) {
                                 try {
                                     player.start()
@@ -122,13 +151,17 @@ fun HomeTab(
                             }
                         }
                     }
+                    if (lastDrowsyAlert == null || Duration.between(lastDrowsyAlert, now).seconds > ALERT_COOLDOWN_SECONDS) {
+                        warnings += 1
+                        tripAlerts.add(Alert(UUID.randomUUID().toString(), AlertType.DROWSINESS, now))
+                        lastDrowsyAlert = now
+                    }
                 },
                 onDistracted = {
-                    warnings += 1
+                    val now = LocalTime.now()
                     aiMessage = "Please stay focused on the road."
                     if (soundEnabled) {
                         mediaPlayer?.let { player ->
-                            // ONLY start if not already playing. Avoid resetting to 0 every frame.
                             if (!player.isPlaying) {
                                 try {
                                     player.start()
@@ -137,6 +170,11 @@ fun HomeTab(
                                 }
                             }
                         }
+                    }
+                    if (lastDistractedAlert == null || Duration.between(lastDistractedAlert, now).seconds > ALERT_COOLDOWN_SECONDS) {
+                        warnings += 1
+                        tripAlerts.add(Alert(UUID.randomUUID().toString(), AlertType.DISTRACTION, now))
+                        lastDistractedAlert = now
                     }
                 },
                 onImageDimensions = { width, height ->
