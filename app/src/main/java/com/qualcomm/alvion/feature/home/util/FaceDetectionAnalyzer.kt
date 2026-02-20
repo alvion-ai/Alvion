@@ -41,7 +41,7 @@ class FaceDetectionAnalyzer(
     // Callback rate limiting
     private var lastDrowsyCallbackTime = 0L
     private var lastDistractionCallbackTime = 0L
-    private val callbackCooldownMs = 3000L  // Min 3 seconds between callbacks
+    private val callbackCooldownMs = 3000L // Min 3 seconds between callbacks
 
     private val minFaceWidthFraction = 0.15f
     private val minFaceHeightFraction = 0.15f
@@ -53,7 +53,10 @@ class FaceDetectionAnalyzer(
     private var lastImageHeight = 0
 
     @Volatile
-    private var monitoringEnabled: Boolean = false // Default to false until calibrated
+    private var monitoringEnabled: Boolean = false
+
+    // Step 7: Robust Bucket Mapping
+    private val bucketYawMeans: MutableMap<String, Float> = mutableMapOf()
 
     fun setMonitoringEnabled(enabled: Boolean) {
         monitoringEnabled = enabled
@@ -67,38 +70,30 @@ class FaceDetectionAnalyzer(
         return openEyeStatsByBucket[bucketName]?.count ?: 0
     }
 
-    private data class PoseBucket(
-        val name: String,
-        val yawMin: Float,
-        val yawMax: Float,
-    ) {
-        fun containsYaw(deltaYaw: Float): Boolean = deltaYaw >= yawMin && deltaYaw < yawMax
-    }
-
-    private val poseBuckets =
-        listOf(
-            PoseBucket(name = "forward", yawMin = -15f, yawMax = 15f),
-            PoseBucket(name = "left", yawMin = -35f, yawMax = -15f),
-            PoseBucket(name = "right", yawMin = 15f, yawMax = 35f),
-        )
-
     private data class RunningStats(
         var count: Int = 0,
         var mean: Float = 0f,
         var m2: Float = 0f,
+        var yawSum: Float = 0f, // Track yaw for Step 7
     ) {
-        fun add(x: Float) {
+        fun add(
+            eyeScore: Float,
+            yaw: Float,
+        ) {
             count++
-            val delta = x - mean
+            yawSum += yaw
+            val delta = eyeScore - mean
             mean += delta / count
-            val delta2 = x - mean
-            m2 += delta * delta2
+            val delta2 = eyeScore - mean
+            m2 += eyeScore * delta2
         }
 
         fun stdDev(): Float {
             if (count < 2) return 0f
             return sqrt(m2 / (count - 1))
         }
+
+        fun yawMean(): Float = if (count > 0) yawSum / count else 0f
     }
 
     private val openEyeStatsByBucket: MutableMap<String, RunningStats> =
@@ -123,6 +118,7 @@ class FaceDetectionAnalyzer(
         hasFiredDrowsyForThisClosure = false
         distractionCounter = 0
         lastValidMetricsTime = 0L
+        bucketYawMeans.clear()
 
         openEyeStatsByBucket.keys.forEach { key ->
             openEyeStatsByBucket[key] = RunningStats()
@@ -143,6 +139,9 @@ class FaceDetectionAnalyzer(
         for ((bucketName, stats) in openEyeStatsByBucket) {
             if (stats.count < max(10, calibrationFramesNeededPerBucket / 3)) continue
 
+            // Store Yaw Mean for robust classification (Step 7)
+            bucketYawMeans[bucketName] = stats.yawMean()
+
             val mean = stats.mean
             val std = stats.stdDev()
             val raw = mean - (k * std)
@@ -156,6 +155,7 @@ class FaceDetectionAnalyzer(
     fun resetCalibration() {
         baselineHeadAngle = null
         closedThresholdByBucket.clear()
+        bucketYawMeans.clear()
         monitoringEnabled = false
         eyeClosedStartTime = null
         hasFiredDrowsyForThisClosure = false
@@ -164,21 +164,17 @@ class FaceDetectionAnalyzer(
         lastValidMetricsTime = 0L
     }
 
-    private val highAccuracyOpts =
-        FaceDetectorOptions.Builder()
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-            .build()
-
-    private val detector = FaceDetection.getClient(highAccuracyOpts)
+    private val detector =
+        FaceDetection.getClient(
+            FaceDetectorOptions.Builder()
+                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+                .build(),
+        )
 
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image
-        if (mediaImage == null) {
-            imageProxy.close()
-            return
-        }
+        val mediaImage = imageProxy.image ?: return imageProxy.close()
 
         val rotation = imageProxy.imageInfo.rotationDegrees
         val imageWidth = if (rotation == 90 || rotation == 270) imageProxy.height else imageProxy.width
@@ -186,9 +182,7 @@ class FaceDetectionAnalyzer(
         lastImageWidth = imageWidth
         lastImageHeight = imageHeight
 
-        mainHandler.post {
-            onImageDimensions(imageWidth, imageHeight)
-        }
+        mainHandler.post { onImageDimensions(imageWidth, imageHeight) }
 
         val image = InputImage.fromMediaImage(mediaImage, rotation)
 
@@ -197,106 +191,66 @@ class FaceDetectionAnalyzer(
                 onFacesDetected(faces)
                 val now = System.currentTimeMillis()
 
-                if (faces.isEmpty()) {
-                    handleInvalidFrame(now)
-                    return@addOnSuccessListener
-                }
-
-                // Step 4: Primary face selection
                 val primaryFace = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 if (primaryFace == null) {
                     handleInvalidFrame(now)
                     return@addOnSuccessListener
                 }
 
-                if (baselineHeadAngle == null) {
-                    baselineHeadAngle = primaryFace.headEulerAngleY
+                if (baselineHeadAngle == null) baselineHeadAngle = primaryFace.headEulerAngleY
+                val rotY = primaryFace.headEulerAngleY
+                val yawDelta = rotY - (baselineHeadAngle ?: rotY)
+
+                // Validation
+                val leftProb = primaryFace.leftEyeOpenProbability
+                val rightProb = primaryFace.rightEyeOpenProbability
+                val faceBox = primaryFace.boundingBox
+                val faceWidthFrac = faceBox.width().toFloat() / max(1, lastImageWidth)
+                val faceHeightFrac = faceBox.height().toFloat() / max(1, lastImageHeight)
+
+                val roll = abs(primaryFace.headEulerAngleZ)
+                val pitch = abs(primaryFace.headEulerAngleX)
+                val yawAbs = abs(yawDelta)
+
+                if (leftProb == null || rightProb == null ||
+                    faceWidthFrac < minFaceWidthFraction || faceHeightFrac < minFaceHeightFraction ||
+                    roll > 45f || pitch > 30f || yawAbs > 50f
+                ) {
+                    handleInvalidFrame(now)
+                    return@addOnSuccessListener
                 }
 
-                val rotY = primaryFace.headEulerAngleY
-                val baseY = baselineHeadAngle ?: rotY
-                val yawDeltaFromBaseline = rotY - baseY
+                lastValidMetricsTime = now
 
-                val angleDifference = abs(yawDeltaFromBaseline)
+                // Calculate Eye Score
+                val penalty = (if (roll > 30f) 0.15f else 0f) + (if (pitch > 20f) 0.10f else 0f) + (if (yawAbs > 25f) 0.10f else 0f)
+                val eyeScore = min((leftProb - penalty).coerceIn(0f, 1f), (rightProb - penalty).coerceIn(0f, 1f))
+                eyeScoreEma = if (eyeScoreEma == null) eyeScore else (1f - emaAlpha) * eyeScoreEma!! + emaAlpha * eyeScore
+
+                // Calibration recording
+                if (isCalibrating) {
+                    calibrationTargetBucket?.let { openEyeStatsByBucket[it]?.add(eyeScoreEma!!, rotY) }
+                }
+
                 if (monitoringEnabled) {
-                    if (angleDifference > distractionThreshold) {
+                    // Distraction
+                    if (yawAbs > distractionThreshold) {
                         distractionCounter++
-                        if (distractionCounter > 5) {
-                            if (now - lastDistractionCallbackTime >= callbackCooldownMs) {
-                                lastDistractionCallbackTime = now
-                                mainHandler.post { onDistracted() }
-                            }
+                        if (distractionCounter > 5 && now - lastDistractionCallbackTime >= callbackCooldownMs) {
+                            lastDistractionCallbackTime = now
+                            mainHandler.post { onDistracted() }
                         }
                     } else {
                         distractionCounter = 0
                     }
-                }
 
-                val leftProb = primaryFace.leftEyeOpenProbability
-                val rightProb = primaryFace.rightEyeOpenProbability
-                if (leftProb == null || rightProb == null) {
-                    handleInvalidFrame(now)
-                    return@addOnSuccessListener
-                }
+                    // Drowsiness with Step 7: Closest Mean Bucket selection
+                    val currentBucket = bucketYawMeans.minByOrNull { abs(it.value - rotY) }?.key ?: "forward"
+                    val threshold = closedThresholdByBucket[currentBucket] ?: 0.40f
 
-                val faceBox = primaryFace.boundingBox
-                val faceWidthFrac = faceBox.width().toFloat() / max(1, lastImageWidth).toFloat()
-                val faceHeightFrac = faceBox.height().toFloat() / max(1, lastImageHeight).toFloat()
-                val faceLargeEnough = faceWidthFrac >= minFaceWidthFraction && faceHeightFrac >= minFaceHeightFraction
-
-                val roll = abs(primaryFace.headEulerAngleZ)
-                val pitch = abs(primaryFace.headEulerAngleX)
-                val yawAbsFromBaseline = abs(yawDeltaFromBaseline)
-
-                val rollPenalty = if (roll > 30f) 0.15f else 0f
-                val pitchPenalty = if (pitch > 20f) 0.10f else 0f
-                val yawPenalty = if (yawAbsFromBaseline > 25f) 0.10f else 0f
-                val totalPenalty = rollPenalty + pitchPenalty + yawPenalty
-
-                val poseNotExtreme = (roll < 45f && pitch < 30f && yawAbsFromBaseline < 45f)
-                if (!faceLargeEnough || !poseNotExtreme) {
-                    handleInvalidFrame(now)
-                    return@addOnSuccessListener
-                }
-
-                // If we reached here, the frame is valid
-                lastValidMetricsTime = now
-
-                val leftAdjusted = (leftProb - totalPenalty).coerceIn(0f, 1f)
-                val rightAdjusted = (rightProb - totalPenalty).coerceIn(0f, 1f)
-                val eyeScore = min(leftAdjusted, rightAdjusted)
-
-                val updatedEma =
-                    if (eyeScoreEma == null) {
-                        eyeScore
-                    } else {
-                        (1f - emaAlpha) * eyeScoreEma!! + emaAlpha * eyeScore
-                    }
-                eyeScoreEma = updatedEma
-
-                if (isCalibrating && baselineHeadAngle != null) {
-                    calibrationTargetBucket?.let { target ->
-                        openEyeStatsByBucket[target]?.add(updatedEma)
-                    }
-                }
-
-                if (monitoringEnabled) {
-                    val currentBucketName = poseBuckets.firstOrNull { it.containsYaw(yawDeltaFromBaseline) }?.name ?: "forward"
-                    val threshold =
-                        closedThresholdByBucket[currentBucketName]
-                            ?: closedThresholdByBucket["forward"]
-                            ?: 0.40f
-
-                    // Step 5: Time-based state machine
-                    val eyesCurrentlyClosed = updatedEma < threshold
-
-                    if (eyesCurrentlyClosed) {
-                        if (eyeClosedStartTime == null) {
-                            eyeClosedStartTime = now
-                        }
-                        
-                        val closedDuration = now - (eyeClosedStartTime ?: now)
-                        if (closedDuration >= DROWSY_TRIGGER_MS && !hasFiredDrowsyForThisClosure) {
+                    if (eyeScoreEma!! < threshold) {
+                        if (eyeClosedStartTime == null) eyeClosedStartTime = now
+                        if (now - eyeClosedStartTime!! >= DROWSY_TRIGGER_MS && !hasFiredDrowsyForThisClosure) {
                             if (now - lastDrowsyCallbackTime >= callbackCooldownMs) {
                                 lastDrowsyCallbackTime = now
                                 mainHandler.post { onDrowsy() }
@@ -304,23 +258,16 @@ class FaceDetectionAnalyzer(
                             }
                         }
                     } else {
-                        // Eyes are open
                         eyeClosedStartTime = null
                         hasFiredDrowsyForThisClosure = false
                     }
                 }
             }
-            .addOnFailureListener { e ->
-                e.printStackTrace()
-            }
-            .addOnCompleteListener {
-                imageProxy.close()
-            }
+            .addOnFailureListener { it.printStackTrace() }
+            .addOnCompleteListener { imageProxy.close() }
     }
 
     private fun handleInvalidFrame(now: Long) {
-        // Step 6: Grace period logic
-        // If we haven't seen a valid frame for more than GRACE_MS, reset state
         if (now - lastValidMetricsTime > GRACE_MS) {
             eyeScoreEma = null
             eyeClosedStartTime = null

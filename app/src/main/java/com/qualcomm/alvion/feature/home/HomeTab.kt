@@ -86,7 +86,7 @@ fun HomeTab(
 
     // Beep rate limiting
     var lastBeepTime by remember { mutableLongStateOf(0L) }
-    val beepCooldownMs = 3000L  // Prevent beeps more frequently than every 3 seconds
+    val beepCooldownMs = 3000L // Prevent beeps more frequently than every 3 seconds
 
     val soundPool =
         remember {
@@ -193,22 +193,22 @@ fun HomeTab(
             while (faceDetectionAnalyzer.getCalibrationCount(targetBucket) < framesPerBucket) {
                 if (System.currentTimeMillis() - startTime > timeoutMs) {
                     // Timeout occurred for this bucket
-                    break 
+                    break
                 }
                 delay(200)
             }
-            
+
             // Optional: check if we actually got enough samples
             if (faceDetectionAnalyzer.getCalibrationCount(targetBucket) < (framesPerBucket / 2)) {
-                 // Too few samples, we might as well fail early or just continue and let finishCalibration handle it.
-                 // For now, let's just continue and let finishCalibration decide.
+                // Too few samples, we might as well fail early or just continue and let finishCalibration handle it.
+                // For now, let's just continue and let finishCalibration decide.
             }
         }
 
         val ok = faceDetectionAnalyzer.finishCalibration()
         calibrationStep = 0
         isCalibrating = false
-        
+
         faceDetectionAnalyzer.setMonitoringEnabled(ok)
         hasCalibratedOnce = ok
 
