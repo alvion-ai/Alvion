@@ -187,11 +187,13 @@ fun HomeTab(
         val ok = faceDetectionAnalyzer.finishCalibration()
         calibrationStep = 0
         isCalibrating = false
-        faceDetectionAnalyzer.setMonitoringEnabled(true)
+        
+        // Step 1: Only enable monitoring if calibration succeeded
+        faceDetectionAnalyzer.setMonitoringEnabled(ok)
+        hasCalibratedOnce = ok
 
         aiMessage =
             if (ok) {
-                hasCalibratedOnce = true
                 AIMessage("Done. Calibration complete.", MessageType.SUCCESS)
             } else {
                 AIMessage("Calibration incomplete. Please retry with better lighting.", MessageType.WARNING)
