@@ -45,6 +45,7 @@ class FaceDetectionAnalyzer(
     private val minFaceHeightFraction = 0.15f
 
     private var isCalibrating = false
+    private var calibrationTargetBucket: String? = null
     private var calibrationFramesNeededPerBucket = 0
     private var lastImageWidth = 0
     private var lastImageHeight = 0
@@ -54,6 +55,10 @@ class FaceDetectionAnalyzer(
 
     fun setMonitoringEnabled(enabled: Boolean) {
         monitoringEnabled = enabled
+    }
+
+    fun setCalibrationTarget(bucketName: String?) {
+        calibrationTargetBucket = bucketName
     }
 
     private data class PoseBucket(
@@ -104,6 +109,7 @@ class FaceDetectionAnalyzer(
     fun startCalibration(framesPerBucket: Int = 45) {
         isCalibrating = true
         calibrationFramesNeededPerBucket = max(1, framesPerBucket)
+        calibrationTargetBucket = null
 
         baselineHeadAngle = null
         eyeScoreEma = null
@@ -118,6 +124,7 @@ class FaceDetectionAnalyzer(
 
     fun finishCalibration(): Boolean {
         isCalibrating = false
+        calibrationTargetBucket = null
 
         val forwardStats = openEyeStatsByBucket["forward"]
         if (forwardStats == null || forwardStats.count < max(10, calibrationFramesNeededPerBucket / 3)) {
@@ -254,8 +261,9 @@ class FaceDetectionAnalyzer(
                     eyeScoreEma = updatedEma
 
                     if (isCalibrating && baselineHeadAngle != null) {
-                        val bucket = poseBuckets.firstOrNull { it.containsYaw(yawDeltaFromBaseline) } ?: poseBuckets[0]
-                        openEyeStatsByBucket[bucket.name]?.add(updatedEma)
+                        calibrationTargetBucket?.let { target ->
+                            openEyeStatsByBucket[target]?.add(updatedEma)
+                        }
                     }
 
                     if (monitoringEnabled) {
@@ -301,6 +309,9 @@ class FaceDetectionAnalyzer(
                         }
                     }
                 }
+            }
+            .addOnSuccessListener { faces ->
+                onFacesDetected(faces)
             }
             .addOnFailureListener { e ->
                 e.printStackTrace()
