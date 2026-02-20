@@ -198,119 +198,122 @@ class FaceDetectionAnalyzer(
                     return@addOnSuccessListener
                 }
 
-                for (face in faces) {
-                    if (baselineHeadAngle == null) {
-                        baselineHeadAngle = face.headEulerAngleY
+                // Step 4: Primary face selection (avoid passenger / background faces)
+                // Select the largest face bounding box area to track only the driver
+                val primaryFace = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
+                if (primaryFace == null) return@addOnSuccessListener
+
+                if (baselineHeadAngle == null) {
+                    baselineHeadAngle = primaryFace.headEulerAngleY
+                }
+
+                val rotY = primaryFace.headEulerAngleY
+                val baseY = baselineHeadAngle ?: rotY
+                val yawDeltaFromBaseline = rotY - baseY
+
+                val angleDifference = abs(yawDeltaFromBaseline)
+                if (monitoringEnabled) {
+                    if (angleDifference > distractionThreshold) {
+                        distractionCounter++
+                        if (distractionCounter > 5) {
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - lastDistractionCallbackTime >= callbackCooldownMs) {
+                                lastDistractionCallbackTime = currentTime
+                                mainHandler.post { onDistracted() }
+                            }
+                        }
+                    } else {
+                        distractionCounter = 0
                     }
+                }
 
-                    val rotY = face.headEulerAngleY
-                    val baseY = baselineHeadAngle ?: rotY
-                    val yawDeltaFromBaseline = rotY - baseY
+                val leftProb = primaryFace.leftEyeOpenProbability
+                val rightProb = primaryFace.rightEyeOpenProbability
+                if (leftProb == null || rightProb == null) {
+                    eyeScoreEma = null
+                    drowsinessCounter = 0
+                    return@addOnSuccessListener
+                }
 
-                    val angleDifference = abs(yawDeltaFromBaseline)
-                    if (monitoringEnabled) {
-                        if (angleDifference > distractionThreshold) {
-                            distractionCounter++
-                            if (distractionCounter > 5) {
+                val faceBox = primaryFace.boundingBox
+                val faceWidthFrac = faceBox.width().toFloat() / max(1, lastImageWidth).toFloat()
+                val faceHeightFrac = faceBox.height().toFloat() / max(1, lastImageHeight).toFloat()
+                val faceLargeEnough = faceWidthFrac >= minFaceWidthFraction && faceHeightFrac >= minFaceHeightFraction
+
+                val roll = abs(primaryFace.headEulerAngleZ)
+                val pitch = abs(primaryFace.headEulerAngleX)
+                val yawAbsFromBaseline = abs(yawDeltaFromBaseline)
+
+                val rollPenalty = if (roll > 30f) 0.15f else 0f
+                val pitchPenalty = if (pitch > 20f) 0.10f else 0f
+                val yawPenalty = if (yawAbsFromBaseline > 25f) 0.10f else 0f
+                val totalPenalty = rollPenalty + pitchPenalty + yawPenalty
+
+                val poseNotExtreme = (roll < 45f && pitch < 30f && yawAbsFromBaseline < 45f)
+                if (!faceLargeEnough || !poseNotExtreme) {
+                    eyeScoreEma = null
+                    drowsinessCounter = 0
+                    return@addOnSuccessListener
+                }
+
+                val leftAdjusted = (leftProb - totalPenalty).coerceIn(0f, 1f)
+                val rightAdjusted = (rightProb - totalPenalty).coerceIn(0f, 1f)
+                val eyeScore = min(leftAdjusted, rightAdjusted)
+
+                val updatedEma =
+                    if (eyeScoreEma == null) {
+                        eyeScore
+                    } else {
+                        (1f - emaAlpha) * eyeScoreEma!! + emaAlpha * eyeScore
+                    }
+                eyeScoreEma = updatedEma
+
+                if (isCalibrating && baselineHeadAngle != null) {
+                    calibrationTargetBucket?.let { target ->
+                        openEyeStatsByBucket[target]?.add(updatedEma)
+                    }
+                }
+
+                if (monitoringEnabled) {
+                    val currentBucketName = poseBuckets.firstOrNull { it.containsYaw(yawDeltaFromBaseline) }?.name ?: "forward"
+                    val threshold =
+                        closedThresholdByBucket[currentBucketName]
+                            ?: closedThresholdByBucket["forward"]
+                            ?: 0.40f
+
+                    // Blink detection logic
+                    val eyesCurrentlyClosed = updatedEma < threshold
+                    val currentTime = System.currentTimeMillis()
+
+                    if (eyesCurrentlyClosed) {
+                        // Eyes just closed - record the time
+                        if (eyeWasOpen) {
+                            lastEyeClosureTime = currentTime
+                            eyeWasOpen = false
+                        }
+
+                        // Calculate how long eyes have been closed
+                        val closureDuration = currentTime - lastEyeClosureTime
+
+                        // Only count as drowsiness if closure is sustained (> 300ms, typical blink)
+                        if (closureDuration > blinkDurationThreshold) {
+                            drowsinessCounter++
+                            if (drowsinessCounter > 8) {
                                 val currentTime = System.currentTimeMillis()
-                                if (currentTime - lastDistractionCallbackTime >= callbackCooldownMs) {
-                                    lastDistractionCallbackTime = currentTime
-                                    mainHandler.post { onDistracted() }
+                                if (currentTime - lastDrowsyCallbackTime >= callbackCooldownMs) {
+                                    lastDrowsyCallbackTime = currentTime
+                                    mainHandler.post { onDrowsy() }
                                 }
                             }
                         } else {
-                            distractionCounter = 0
-                        }
-                    }
-
-                    val leftProb = face.leftEyeOpenProbability
-                    val rightProb = face.rightEyeOpenProbability
-                    if (leftProb == null || rightProb == null) {
-                        eyeScoreEma = null
-                        drowsinessCounter = 0
-                        continue
-                    }
-
-                    val faceBox = face.boundingBox
-                    val faceWidthFrac = faceBox.width().toFloat() / max(1, lastImageWidth).toFloat()
-                    val faceHeightFrac = faceBox.height().toFloat() / max(1, lastImageHeight).toFloat()
-                    val faceLargeEnough = faceWidthFrac >= minFaceWidthFraction && faceHeightFrac >= minFaceHeightFraction
-
-                    val roll = abs(face.headEulerAngleZ)
-                    val pitch = abs(face.headEulerAngleX)
-                    val yawAbsFromBaseline = abs(yawDeltaFromBaseline)
-
-                    val rollPenalty = if (roll > 30f) 0.15f else 0f
-                    val pitchPenalty = if (pitch > 20f) 0.10f else 0f
-                    val yawPenalty = if (yawAbsFromBaseline > 25f) 0.10f else 0f
-                    val totalPenalty = rollPenalty + pitchPenalty + yawPenalty
-
-                    val poseNotExtreme = (roll < 45f && pitch < 30f && yawAbsFromBaseline < 45f)
-                    if (!faceLargeEnough || !poseNotExtreme) {
-                        eyeScoreEma = null
-                        drowsinessCounter = 0
-                        continue
-                    }
-
-                    val leftAdjusted = (leftProb - totalPenalty).coerceIn(0f, 1f)
-                    val rightAdjusted = (rightProb - totalPenalty).coerceIn(0f, 1f)
-                    val eyeScore = min(leftAdjusted, rightAdjusted)
-
-                    val updatedEma =
-                        if (eyeScoreEma == null) {
-                            eyeScore
-                        } else {
-                            (1f - emaAlpha) * eyeScoreEma!! + emaAlpha * eyeScore
-                        }
-                    eyeScoreEma = updatedEma
-
-                    if (isCalibrating && baselineHeadAngle != null) {
-                        calibrationTargetBucket?.let { target ->
-                            openEyeStatsByBucket[target]?.add(updatedEma)
-                        }
-                    }
-
-                    if (monitoringEnabled) {
-                        val currentBucketName = poseBuckets.firstOrNull { it.containsYaw(yawDeltaFromBaseline) }?.name ?: "forward"
-                        val threshold =
-                            closedThresholdByBucket[currentBucketName]
-                                ?: closedThresholdByBucket["forward"]
-                                ?: 0.40f
-
-                        // Blink detection logic
-                        val eyesCurrentlyClosed = updatedEma < threshold
-                        val currentTime = System.currentTimeMillis()
-
-                        if (eyesCurrentlyClosed) {
-                            // Eyes just closed - record the time
-                            if (eyeWasOpen) {
-                                lastEyeClosureTime = currentTime
-                                eyeWasOpen = false
-                            }
-
-                            // Calculate how long eyes have been closed
-                            val closureDuration = currentTime - lastEyeClosureTime
-
-                            // Only count as drowsiness if closure is sustained (> 300ms, typical blink)
-                            if (closureDuration > blinkDurationThreshold) {
-                                drowsinessCounter++
-                                if (drowsinessCounter > 8) {
-                                    val currentTime = System.currentTimeMillis()
-                                    if (currentTime - lastDrowsyCallbackTime >= callbackCooldownMs) {
-                                        lastDrowsyCallbackTime = currentTime
-                                        mainHandler.post { onDrowsy() }
-                                    }
-                                }
-                            } else {
-                                // Reset counter if it's just a blink
-                                drowsinessCounter = 0
-                            }
-                        } else {
-                            // Eyes are open
-                            eyeWasOpen = true
+                            // Reset counter if it's just a blink
                             drowsinessCounter = 0
-                            lastEyeClosureTime = 0L
                         }
+                    } else {
+                        // Eyes are open
+                        eyeWasOpen = true
+                        drowsinessCounter = 0
+                        lastEyeClosureTime = 0L
                     }
                 }
             }
