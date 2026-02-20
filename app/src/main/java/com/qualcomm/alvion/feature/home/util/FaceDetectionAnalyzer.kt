@@ -34,6 +34,10 @@ class FaceDetectionAnalyzer(
     private var hasFiredDrowsyForThisClosure = false
     private val DROWSY_TRIGGER_MS = 3000L // 3.0 seconds for robust detection
 
+    // Grace window for brief bad frames
+    private var lastValidMetricsTime = 0L
+    private val GRACE_MS = 400L // 400ms grace period
+
     // Callback rate limiting
     private var lastDrowsyCallbackTime = 0L
     private var lastDistractionCallbackTime = 0L
@@ -118,6 +122,7 @@ class FaceDetectionAnalyzer(
         eyeClosedStartTime = null
         hasFiredDrowsyForThisClosure = false
         distractionCounter = 0
+        lastValidMetricsTime = 0L
 
         openEyeStatsByBucket.keys.forEach { key ->
             openEyeStatsByBucket[key] = RunningStats()
@@ -156,6 +161,7 @@ class FaceDetectionAnalyzer(
         hasFiredDrowsyForThisClosure = false
         lastDrowsyCallbackTime = 0L
         lastDistractionCallbackTime = 0L
+        lastValidMetricsTime = 0L
     }
 
     private val highAccuracyOpts =
@@ -189,18 +195,19 @@ class FaceDetectionAnalyzer(
         detector.process(image)
             .addOnSuccessListener { faces ->
                 onFacesDetected(faces)
+                val now = System.currentTimeMillis()
 
                 if (faces.isEmpty()) {
-                    distractionCounter = 0
-                    eyeScoreEma = null
-                    eyeClosedStartTime = null
-                    hasFiredDrowsyForThisClosure = false
+                    handleInvalidFrame(now)
                     return@addOnSuccessListener
                 }
 
                 // Step 4: Primary face selection
                 val primaryFace = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
-                if (primaryFace == null) return@addOnSuccessListener
+                if (primaryFace == null) {
+                    handleInvalidFrame(now)
+                    return@addOnSuccessListener
+                }
 
                 if (baselineHeadAngle == null) {
                     baselineHeadAngle = primaryFace.headEulerAngleY
@@ -215,9 +222,8 @@ class FaceDetectionAnalyzer(
                     if (angleDifference > distractionThreshold) {
                         distractionCounter++
                         if (distractionCounter > 5) {
-                            val currentTime = System.currentTimeMillis()
-                            if (currentTime - lastDistractionCallbackTime >= callbackCooldownMs) {
-                                lastDistractionCallbackTime = currentTime
+                            if (now - lastDistractionCallbackTime >= callbackCooldownMs) {
+                                lastDistractionCallbackTime = now
                                 mainHandler.post { onDistracted() }
                             }
                         }
@@ -229,9 +235,7 @@ class FaceDetectionAnalyzer(
                 val leftProb = primaryFace.leftEyeOpenProbability
                 val rightProb = primaryFace.rightEyeOpenProbability
                 if (leftProb == null || rightProb == null) {
-                    eyeScoreEma = null
-                    eyeClosedStartTime = null
-                    hasFiredDrowsyForThisClosure = false
+                    handleInvalidFrame(now)
                     return@addOnSuccessListener
                 }
 
@@ -251,11 +255,12 @@ class FaceDetectionAnalyzer(
 
                 val poseNotExtreme = (roll < 45f && pitch < 30f && yawAbsFromBaseline < 45f)
                 if (!faceLargeEnough || !poseNotExtreme) {
-                    eyeScoreEma = null
-                    eyeClosedStartTime = null
-                    hasFiredDrowsyForThisClosure = false
+                    handleInvalidFrame(now)
                     return@addOnSuccessListener
                 }
+
+                // If we reached here, the frame is valid
+                lastValidMetricsTime = now
 
                 val leftAdjusted = (leftProb - totalPenalty).coerceIn(0f, 1f)
                 val rightAdjusted = (rightProb - totalPenalty).coerceIn(0f, 1f)
@@ -282,9 +287,8 @@ class FaceDetectionAnalyzer(
                             ?: closedThresholdByBucket["forward"]
                             ?: 0.40f
 
-                    // Step 5: Replace frame-based drowsinessCounter with time-based state machine
+                    // Step 5: Time-based state machine
                     val eyesCurrentlyClosed = updatedEma < threshold
-                    val now = System.currentTimeMillis()
 
                     if (eyesCurrentlyClosed) {
                         if (eyeClosedStartTime == null) {
@@ -312,5 +316,16 @@ class FaceDetectionAnalyzer(
             .addOnCompleteListener {
                 imageProxy.close()
             }
+    }
+
+    private fun handleInvalidFrame(now: Long) {
+        // Step 6: Grace period logic
+        // If we haven't seen a valid frame for more than GRACE_MS, reset state
+        if (now - lastValidMetricsTime > GRACE_MS) {
+            eyeScoreEma = null
+            eyeClosedStartTime = null
+            hasFiredDrowsyForThisClosure = false
+            distractionCounter = 0
+        }
     }
 }
