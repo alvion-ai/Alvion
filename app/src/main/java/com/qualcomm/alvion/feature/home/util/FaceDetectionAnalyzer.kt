@@ -61,6 +61,10 @@ class FaceDetectionAnalyzer(
         calibrationTargetBucket = bucketName
     }
 
+    fun getCalibrationCount(bucketName: String): Int {
+        return openEyeStatsByBucket[bucketName]?.count ?: 0
+    }
+
     private data class PoseBucket(
         val name: String,
         val yawMin: Float,
@@ -309,9 +313,6 @@ class FaceDetectionAnalyzer(
                         }
                     }
                 }
-            }
-            .addOnSuccessListener { faces ->
-                onFacesDetected(faces)
             }
             .addOnFailureListener { e ->
                 e.printStackTrace()

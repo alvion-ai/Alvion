@@ -167,28 +167,48 @@ fun HomeTab(
     LaunchedEffect(isCalibrating) {
         if (!isCalibrating) return@LaunchedEffect
 
+        val framesPerBucket = 45
         faceDetectionAnalyzer.setMonitoringEnabled(false)
-        faceDetectionAnalyzer.startCalibration(framesPerBucket = 45)
+        faceDetectionAnalyzer.startCalibration(framesPerBucket = framesPerBucket)
 
+        val bucketNames = listOf("forward", "left", "right")
         val steps =
             listOf(
-                "Calibration starting. Keep eyes OPEN and look FORWARD. Hold steady.",
+                "Keep eyes OPEN and look FORWARD. Hold steady.",
                 "Now turn your HEAD slightly LEFT (keep eyes open, gaze forward).",
                 "Now turn your HEAD slightly RIGHT (keep eyes open, gaze forward).",
             )
 
+        var calibrationFailed = false
         for (i in steps.indices) {
             calibrationStep = i + 1
+            val targetBucket = bucketNames[i]
+            faceDetectionAnalyzer.setCalibrationTarget(targetBucket)
             aiMessage = AIMessage(steps[i], MessageType.INFO)
             beepOnce()
-            delay(6000)
+
+            // Step 3: Wait until enough samples are collected or timeout
+            val startTime = System.currentTimeMillis()
+            val timeoutMs = 12000L
+            while (faceDetectionAnalyzer.getCalibrationCount(targetBucket) < framesPerBucket) {
+                if (System.currentTimeMillis() - startTime > timeoutMs) {
+                    // Timeout occurred for this bucket
+                    break 
+                }
+                delay(200)
+            }
+            
+            // Optional: check if we actually got enough samples
+            if (faceDetectionAnalyzer.getCalibrationCount(targetBucket) < (framesPerBucket / 2)) {
+                 // Too few samples, we might as well fail early or just continue and let finishCalibration handle it.
+                 // For now, let's just continue and let finishCalibration decide.
+            }
         }
 
         val ok = faceDetectionAnalyzer.finishCalibration()
         calibrationStep = 0
         isCalibrating = false
         
-        // Step 1: Only enable monitoring if calibration succeeded
         faceDetectionAnalyzer.setMonitoringEnabled(ok)
         hasCalibratedOnce = ok
 
@@ -196,7 +216,7 @@ fun HomeTab(
             if (ok) {
                 AIMessage("Done. Calibration complete.", MessageType.SUCCESS)
             } else {
-                AIMessage("Calibration incomplete. Please retry with better lighting.", MessageType.WARNING)
+                AIMessage("Calibration failed. Not enough stable frames. Please retry.", MessageType.WARNING)
             }
         beepOnce()
     }
