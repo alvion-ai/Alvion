@@ -20,21 +20,19 @@ class FaceDetectionAnalyzer(
     private val onDistracted: () -> Unit,
     private val onImageDimensions: (width: Int, height: Int) -> Unit,
 ) : ImageAnalysis.Analyzer {
-    private var drowsinessCounter = 0
-    private var distractionCounter = 0
-
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    private var distractionCounter = 0
     private var baselineHeadAngle: Float? = null
     private val distractionThreshold = 35f
 
     private var eyeScoreEma: Float? = null
     private val emaAlpha = 0.2f
 
-    // Blink detection variables
-    private var lastEyeClosureTime = 0L
-    private val blinkDurationThreshold = 500L  // milliseconds - typical blink duration
-    private var eyeWasOpen = true  // Track transition from open to closed
+    // Drowsiness state machine
+    private var eyeClosedStartTime: Long? = null
+    private var hasFiredDrowsyForThisClosure = false
+    private val DROWSY_TRIGGER_MS = 3000L // 3.0 seconds for robust detection
 
     // Callback rate limiting
     private var lastDrowsyCallbackTime = 0L
@@ -117,7 +115,8 @@ class FaceDetectionAnalyzer(
 
         baselineHeadAngle = null
         eyeScoreEma = null
-        drowsinessCounter = 0
+        eyeClosedStartTime = null
+        hasFiredDrowsyForThisClosure = false
         distractionCounter = 0
 
         openEyeStatsByBucket.keys.forEach { key ->
@@ -153,8 +152,8 @@ class FaceDetectionAnalyzer(
         baselineHeadAngle = null
         closedThresholdByBucket.clear()
         monitoringEnabled = false
-        lastEyeClosureTime = 0L
-        eyeWasOpen = true
+        eyeClosedStartTime = null
+        hasFiredDrowsyForThisClosure = false
         lastDrowsyCallbackTime = 0L
         lastDistractionCallbackTime = 0L
     }
@@ -192,14 +191,14 @@ class FaceDetectionAnalyzer(
                 onFacesDetected(faces)
 
                 if (faces.isEmpty()) {
-                    drowsinessCounter = 0
                     distractionCounter = 0
                     eyeScoreEma = null
+                    eyeClosedStartTime = null
+                    hasFiredDrowsyForThisClosure = false
                     return@addOnSuccessListener
                 }
 
-                // Step 4: Primary face selection (avoid passenger / background faces)
-                // Select the largest face bounding box area to track only the driver
+                // Step 4: Primary face selection
                 val primaryFace = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 if (primaryFace == null) return@addOnSuccessListener
 
@@ -231,7 +230,8 @@ class FaceDetectionAnalyzer(
                 val rightProb = primaryFace.rightEyeOpenProbability
                 if (leftProb == null || rightProb == null) {
                     eyeScoreEma = null
-                    drowsinessCounter = 0
+                    eyeClosedStartTime = null
+                    hasFiredDrowsyForThisClosure = false
                     return@addOnSuccessListener
                 }
 
@@ -252,7 +252,8 @@ class FaceDetectionAnalyzer(
                 val poseNotExtreme = (roll < 45f && pitch < 30f && yawAbsFromBaseline < 45f)
                 if (!faceLargeEnough || !poseNotExtreme) {
                     eyeScoreEma = null
-                    drowsinessCounter = 0
+                    eyeClosedStartTime = null
+                    hasFiredDrowsyForThisClosure = false
                     return@addOnSuccessListener
                 }
 
@@ -281,39 +282,27 @@ class FaceDetectionAnalyzer(
                             ?: closedThresholdByBucket["forward"]
                             ?: 0.40f
 
-                    // Blink detection logic
+                    // Step 5: Replace frame-based drowsinessCounter with time-based state machine
                     val eyesCurrentlyClosed = updatedEma < threshold
-                    val currentTime = System.currentTimeMillis()
+                    val now = System.currentTimeMillis()
 
                     if (eyesCurrentlyClosed) {
-                        // Eyes just closed - record the time
-                        if (eyeWasOpen) {
-                            lastEyeClosureTime = currentTime
-                            eyeWasOpen = false
+                        if (eyeClosedStartTime == null) {
+                            eyeClosedStartTime = now
                         }
-
-                        // Calculate how long eyes have been closed
-                        val closureDuration = currentTime - lastEyeClosureTime
-
-                        // Only count as drowsiness if closure is sustained (> 300ms, typical blink)
-                        if (closureDuration > blinkDurationThreshold) {
-                            drowsinessCounter++
-                            if (drowsinessCounter > 8) {
-                                val currentTime = System.currentTimeMillis()
-                                if (currentTime - lastDrowsyCallbackTime >= callbackCooldownMs) {
-                                    lastDrowsyCallbackTime = currentTime
-                                    mainHandler.post { onDrowsy() }
-                                }
+                        
+                        val closedDuration = now - (eyeClosedStartTime ?: now)
+                        if (closedDuration >= DROWSY_TRIGGER_MS && !hasFiredDrowsyForThisClosure) {
+                            if (now - lastDrowsyCallbackTime >= callbackCooldownMs) {
+                                lastDrowsyCallbackTime = now
+                                mainHandler.post { onDrowsy() }
+                                hasFiredDrowsyForThisClosure = true
                             }
-                        } else {
-                            // Reset counter if it's just a blink
-                            drowsinessCounter = 0
                         }
                     } else {
                         // Eyes are open
-                        eyeWasOpen = true
-                        drowsinessCounter = 0
-                        lastEyeClosureTime = 0L
+                        eyeClosedStartTime = null
+                        hasFiredDrowsyForThisClosure = false
                     }
                 }
             }
