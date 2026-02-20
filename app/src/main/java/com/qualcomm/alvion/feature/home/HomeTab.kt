@@ -84,6 +84,10 @@ fun HomeTab(
 
     var showCalibrationDialog by remember { mutableStateOf(false) }
 
+    // Beep rate limiting
+    var lastBeepTime by remember { mutableLongStateOf(0L) }
+    val beepCooldownMs = 3000L  // Prevent beeps more frequently than every 3 seconds
+
     val soundPool =
         remember {
             SoundPool.Builder()
@@ -100,7 +104,13 @@ fun HomeTab(
 
     fun beepOnce() {
         if (!soundEnabled) return
-        soundPool.play(soundId, 1f, 1f, 0, 0, 1f)
+        val currentTime = System.currentTimeMillis()
+        // Only beep if cooldown has passed
+        if (currentTime - lastBeepTime >= beepCooldownMs) {
+            lastBeepTime = currentTime
+            // Reduced volume from 1f to 0.6f to be less annoying
+            soundPool.play(soundId, 0.6f, 0.6f, 0, 0, 1f)
+        }
     }
 
     LaunchedEffect(isSessionActive) {

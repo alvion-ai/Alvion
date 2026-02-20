@@ -31,6 +31,16 @@ class FaceDetectionAnalyzer(
     private var eyeScoreEma: Float? = null
     private val emaAlpha = 0.2f
 
+    // Blink detection variables
+    private var lastEyeClosureTime = 0L
+    private val blinkDurationThreshold = 500L  // milliseconds - typical blink duration
+    private var eyeWasOpen = true  // Track transition from open to closed
+
+    // Callback rate limiting
+    private var lastDrowsyCallbackTime = 0L
+    private var lastDistractionCallbackTime = 0L
+    private val callbackCooldownMs = 3000L  // Min 3 seconds between callbacks
+
     private val minFaceWidthFraction = 0.15f
     private val minFaceHeightFraction = 0.15f
 
@@ -132,6 +142,10 @@ class FaceDetectionAnalyzer(
         baselineHeadAngle = null
         closedThresholdByBucket.clear()
         monitoringEnabled = false
+        lastEyeClosureTime = 0L
+        eyeWasOpen = true
+        lastDrowsyCallbackTime = 0L
+        lastDistractionCallbackTime = 0L
     }
 
     private val highAccuracyOpts =
@@ -187,7 +201,11 @@ class FaceDetectionAnalyzer(
                         if (angleDifference > distractionThreshold) {
                             distractionCounter++
                             if (distractionCounter > 5) {
-                                mainHandler.post { onDistracted() }
+                                val currentTime = System.currentTimeMillis()
+                                if (currentTime - lastDistractionCallbackTime >= callbackCooldownMs) {
+                                    lastDistractionCallbackTime = currentTime
+                                    mainHandler.post { onDistracted() }
+                                }
                             }
                         } else {
                             distractionCounter = 0
@@ -247,13 +265,39 @@ class FaceDetectionAnalyzer(
                                 ?: closedThresholdByBucket["forward"]
                                 ?: 0.40f
 
-                        if (updatedEma < threshold) {
-                            drowsinessCounter++
-                            if (drowsinessCounter > 5) {
-                                mainHandler.post { onDrowsy() }
+                        // Blink detection logic
+                        val eyesCurrentlyClosed = updatedEma < threshold
+                        val currentTime = System.currentTimeMillis()
+
+                        if (eyesCurrentlyClosed) {
+                            // Eyes just closed - record the time
+                            if (eyeWasOpen) {
+                                lastEyeClosureTime = currentTime
+                                eyeWasOpen = false
+                            }
+
+                            // Calculate how long eyes have been closed
+                            val closureDuration = currentTime - lastEyeClosureTime
+
+                            // Only count as drowsiness if closure is sustained (> 300ms, typical blink)
+                            if (closureDuration > blinkDurationThreshold) {
+                                drowsinessCounter++
+                                if (drowsinessCounter > 8) {
+                                    val currentTime = System.currentTimeMillis()
+                                    if (currentTime - lastDrowsyCallbackTime >= callbackCooldownMs) {
+                                        lastDrowsyCallbackTime = currentTime
+                                        mainHandler.post { onDrowsy() }
+                                    }
+                                }
+                            } else {
+                                // Reset counter if it's just a blink
+                                drowsinessCounter = 0
                             }
                         } else {
+                            // Eyes are open
+                            eyeWasOpen = true
                             drowsinessCounter = 0
+                            lastEyeClosureTime = 0L
                         }
                     }
                 }
