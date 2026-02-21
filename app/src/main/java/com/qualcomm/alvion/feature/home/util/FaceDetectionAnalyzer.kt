@@ -80,7 +80,7 @@ class FaceDetectionAnalyzer(
         var eyeMean: Float = 0f,
         var eyeM2: Float = 0f,
         var yawSum: Float = 0f,
-        var eyeSampleCount: Int = 0
+        var eyeSampleCount: Int = 0,
     ) {
         fun add(
             eyeScore: Float?,
@@ -88,7 +88,7 @@ class FaceDetectionAnalyzer(
         ) {
             count++
             yawSum += yaw
-            
+
             if (eyeScore != null) {
                 eyeSampleCount++
                 val delta = eyeScore - eyeMean
@@ -252,7 +252,7 @@ class FaceDetectionAnalyzer(
                 // Calculate Eye Score
                 val leftProb = primaryFace.leftEyeOpenProbability
                 val rightProb = primaryFace.rightEyeOpenProbability
-                
+
                 if (leftProb != null && rightProb != null) {
                     val penalty = (if (roll > 30f) 0.15f else 0f) + (if (pitch > 20f) 0.10f else 0f) + (if (yawAbs > 25f) 0.10f else 0f)
                     val eyeScore = min((leftProb - penalty).coerceIn(0f, 1f), (rightProb - penalty).coerceIn(0f, 1f))
@@ -266,14 +266,15 @@ class FaceDetectionAnalyzer(
                             calibrationForwardBaseline = openEyeStatsByBucket["forward"]?.yawMean() ?: rotY
                         }
 
-                        val isPoseCorrectForBucket = when (target) {
-                            "forward" -> true 
-                            // MIRRORED: Turning physical LEFT results in POSITIVE yaw in front cam
-                            "left" -> yawDelta > 6f
-                            // MIRRORED: Turning physical RIGHT results in NEGATIVE yaw in front cam
-                            "right" -> yawDelta < -6f
-                            else -> false
-                        }
+                        val isPoseCorrectForBucket =
+                            when (target) {
+                                "forward" -> true
+                                // MIRRORED: Turning physical LEFT results in POSITIVE yaw in front cam
+                                "left" -> yawDelta > 6f
+                                // MIRRORED: Turning physical RIGHT results in NEGATIVE yaw in front cam
+                                "right" -> yawDelta < -6f
+                                else -> false
+                            }
 
                         if (isPoseCorrectForBucket) {
                             openEyeStatsByBucket[target]?.add(eyeScoreEma, rotY)

@@ -90,17 +90,18 @@ fun HomeTab(
     var lastBeepTime by remember { mutableLongStateOf(0L) }
     val beepCooldownMs = 3000L
 
-    val soundPool = remember {
-        SoundPool.Builder()
-            .setMaxStreams(1)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build(),
-            )
-            .build()
-    }
+    val soundPool =
+        remember {
+            SoundPool.Builder()
+                .setMaxStreams(1)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build(),
+                )
+                .build()
+        }
     val soundId = remember { soundPool.load(context, R.raw.alert_beep, 1) }
 
     fun beepOnce() {
@@ -112,27 +113,28 @@ fun HomeTab(
         }
     }
 
-    val faceDetectionAnalyzer = remember {
-        FaceDetectionAnalyzer(
-            onFacesDetected = { faces = it },
-            onDrowsy = {
-                if (isCalibrating) return@FaceDetectionAnalyzer
-                warnings += 1
-                aiMessage = AIMessage("Drowsiness detected.", MessageType.WARNING)
-                if (soundEnabled) beepOnce()
-            },
-            onDistracted = {
-                if (isCalibrating) return@FaceDetectionAnalyzer
-                warnings += 1
-                aiMessage = AIMessage("Please stay focused on the road.", MessageType.WARNING)
-                if (soundEnabled) beepOnce()
-            },
-            onImageDimensions = { width, height ->
-                imageWidth = width
-                imageHeight = height
-            },
-        )
-    }
+    val faceDetectionAnalyzer =
+        remember {
+            FaceDetectionAnalyzer(
+                onFacesDetected = { faces = it },
+                onDrowsy = {
+                    if (isCalibrating) return@FaceDetectionAnalyzer
+                    warnings += 1
+                    aiMessage = AIMessage("Drowsiness detected.", MessageType.WARNING)
+                    if (soundEnabled) beepOnce()
+                },
+                onDistracted = {
+                    if (isCalibrating) return@FaceDetectionAnalyzer
+                    warnings += 1
+                    aiMessage = AIMessage("Please stay focused on the road.", MessageType.WARNING)
+                    if (soundEnabled) beepOnce()
+                },
+                onImageDimensions = { width, height ->
+                    imageWidth = width
+                    imageHeight = height
+                },
+            )
+        }
 
     LaunchedEffect(isSessionActive) {
         if (isSessionActive) {
@@ -165,21 +167,22 @@ fun HomeTab(
         faceDetectionAnalyzer.startCalibration(framesPerBucket = framesPerBucket)
 
         val bucketNames = listOf("forward", "left", "right")
-        val steps = listOf(
-            "Look FORWARD at the road.",
-            "Turn your head slightly LEFT.",
-            "Turn your head slightly RIGHT."
-        )
+        val steps =
+            listOf(
+                "Look FORWARD at the road.",
+                "Turn your head slightly LEFT.",
+                "Turn your head slightly RIGHT.",
+            )
 
         for (i in steps.indices) {
             calibrationStep = i + 1
             val targetBucket = bucketNames[i]
-            
+
             // 1. Instruct user
             aiMessage = AIMessage(steps[i], MessageType.INFO)
             waitingForUserToStartStep = true
             calibrationProgress = 0f
-            
+
             // 2. Wait for user to click "Start Scan" button in UI
             while (waitingForUserToStartStep) {
                 delay(100)
@@ -188,18 +191,18 @@ fun HomeTab(
             // 3. Start scanning this bucket
             faceDetectionAnalyzer.setCalibrationTarget(targetBucket)
             aiMessage = AIMessage("Scanning ${targetBucket.uppercase()}...", MessageType.INFO)
-            
+
             val startTime = System.currentTimeMillis()
             val timeoutMs = 15000L
             while (true) {
                 val count = faceDetectionAnalyzer.getCalibrationCount(targetBucket)
                 calibrationProgress = (count.toFloat() / framesPerBucket).coerceIn(0f, 1f)
-                
+
                 if (count >= framesPerBucket) break
                 if (System.currentTimeMillis() - startTime > timeoutMs) break
                 delay(100)
             }
-            
+
             faceDetectionAnalyzer.setCalibrationTarget(null)
             aiMessage = AIMessage("Step ${i + 1} Done!", MessageType.SUCCESS)
             beepOnce()
@@ -212,11 +215,12 @@ fun HomeTab(
         faceDetectionAnalyzer.setMonitoringEnabled(ok)
         hasCalibratedOnce = ok
 
-        aiMessage = if (ok) {
-            AIMessage("Calibration complete. Safe travels!", MessageType.SUCCESS)
-        } else {
-            AIMessage("Calibration failed. Please try again in better light.", MessageType.WARNING)
-        }
+        aiMessage =
+            if (ok) {
+                AIMessage("Calibration complete. Safe travels!", MessageType.SUCCESS)
+            } else {
+                AIMessage("Calibration failed. Please try again in better light.", MessageType.WARNING)
+            }
         beepOnce()
     }
 
@@ -251,7 +255,7 @@ fun HomeTab(
                 calibrationStep = calibrationStep,
                 calibrationProgress = calibrationProgress,
                 waitingForUserToStartStep = waitingForUserToStartStep,
-                onStartStep = { waitingForUserToStartStep = false }
+                onStartStep = { waitingForUserToStartStep = false },
             )
 
             MetricsGrid(warnings, elapsedSeconds, speedKmh, context, primaryBlue)
@@ -282,11 +286,12 @@ private fun Header(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Text(
                 text = "ALVION",
-                style = TextStyle(
-                    brush = Brush.horizontalGradient(listOf(primaryBlue, secondaryCyan)),
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Black,
-                ),
+                style =
+                    TextStyle(
+                        brush = Brush.horizontalGradient(listOf(primaryBlue, secondaryCyan)),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Black,
+                    ),
             )
             if (isSessionActive) {
                 Spacer(Modifier.width(12.dp))
@@ -325,23 +330,25 @@ private fun CameraCard(
     calibrationStep: Int,
     calibrationProgress: Float,
     waitingForUserToStartStep: Boolean,
-    onStartStep: () -> Unit
+    onStartStep: () -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().animateContentSize().border(
-            width = if (isSessionActive) 2.dp else 0.5.dp,
-            brush = Brush.linearGradient(listOf(primaryBlue.copy(0.5f), secondaryCyan.copy(0.5f))),
-            shape = RoundedCornerShape(24.dp),
-        ),
+        modifier =
+            Modifier.fillMaxWidth().animateContentSize().border(
+                width = if (isSessionActive) 2.dp else 0.5.dp,
+                brush = Brush.linearGradient(listOf(primaryBlue.copy(0.5f), secondaryCyan.copy(0.5f))),
+                shape = RoundedCornerShape(24.dp),
+            ),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = surfaceLight),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Box(
-                modifier = Modifier.fillMaxWidth().height(if (isSessionActive) 470.dp else 220.dp)
-                    .clip(RoundedCornerShape(20.dp)).background(
-                        if (isSessionActive) MaterialTheme.colorScheme.surfaceVariant.copy(0.3f) else Color.White.copy(0.1f)
-                    ),
+                modifier =
+                    Modifier.fillMaxWidth().height(if (isSessionActive) 470.dp else 220.dp)
+                        .clip(RoundedCornerShape(20.dp)).background(
+                            if (isSessionActive) MaterialTheme.colorScheme.surfaceVariant.copy(0.3f) else Color.White.copy(0.1f),
+                        ),
             ) {
                 if (isSessionActive) {
                     CameraPreviewBox(
@@ -375,23 +382,23 @@ private fun CameraCard(
                     if (isCalibrating) {
                         Box(
                             modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.4f)),
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.Center,
                         ) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(24.dp).background(Color.White, RoundedCornerShape(16.dp)).padding(20.dp)
+                                modifier = Modifier.padding(24.dp).background(Color.White, RoundedCornerShape(16.dp)).padding(20.dp),
                             ) {
                                 Text(
                                     "Step $calibrationStep of 3",
                                     style = MaterialTheme.typography.labelLarge,
-                                    color = primaryBlue
+                                    color = primaryBlue,
                                 )
                                 Spacer(Modifier.height(8.dp))
                                 Text(
                                     aiMessage?.text ?: "",
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center
+                                    textAlign = TextAlign.Center,
                                 )
                                 Spacer(Modifier.height(16.dp))
 
@@ -399,7 +406,7 @@ private fun CameraCard(
                                     Button(
                                         onClick = onStartStep,
                                         shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = primaryBlue, contentColor = Color.White)
+                                        colors = ButtonDefaults.buttonColors(containerColor = primaryBlue, contentColor = Color.White),
                                     ) {
                                         Text("Start Scan")
                                     }
@@ -408,7 +415,7 @@ private fun CameraCard(
                                         progress = calibrationProgress,
                                         modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
                                         color = primaryBlue,
-                                        trackColor = primaryBlue.copy(0.1f)
+                                        trackColor = primaryBlue.copy(0.1f),
                                     )
                                     Spacer(Modifier.height(8.dp))
                                     Text("${(calibrationProgress * 100).toInt()}% Complete", style = MaterialTheme.typography.labelSmall)
@@ -488,17 +495,28 @@ private fun CalibrationDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     "To ensure maximum safety, Alvion needs to learn your features in 3 quick positions.",
-                    style = MaterialTheme.typography.bodyMedium, color = primaryBlue.copy(0.7f)
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = primaryBlue.copy(0.7f),
                 )
                 listOf("Look straight forward", "Turn head slightly left", "Turn head slightly right").forEachIndexed { index, step ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(modifier = Modifier.size(28.dp), shape = CircleShape, color = primaryBlue.copy(0.1f)) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text((index + 1).toString(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = primaryBlue)
+                                Text(
+                                    (index + 1).toString(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = primaryBlue,
+                                )
                             }
                         }
                         Spacer(Modifier.width(12.dp))
-                        Text(step, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = primaryBlue.copy(0.9f))
+                        Text(
+                            step,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = primaryBlue.copy(0.9f),
+                        )
                     }
                 }
             }
@@ -548,7 +566,11 @@ private fun MetricsGrid(
 }
 
 @Composable
-private fun Blob(modifier: Modifier, size: Dp, color: Color) {
+private fun Blob(
+    modifier: Modifier,
+    size: Dp,
+    color: Color,
+) {
     Box(modifier = modifier.size(size).blur(80.dp).background(color, CircleShape))
 }
 
@@ -556,7 +578,8 @@ private fun Blob(modifier: Modifier, size: Dp, color: Color) {
 private fun LogoSpotlight(logoSize: Dp) {
     val infiniteTransition = rememberInfiniteTransition()
     val glowScale by infiniteTransition.animateFloat(
-        initialValue = 1f, targetValue = 1.4f,
+        initialValue = 1f,
+        targetValue = 1.4f,
         animationSpec = infiniteRepeatable(tween(2000, easing = LinearOutSlowInEasing), RepeatMode.Reverse),
     )
     Box(contentAlignment = Alignment.Center) {
@@ -566,9 +589,16 @@ private fun LogoSpotlight(logoSize: Dp) {
 }
 
 @Composable
-fun MetricCardModern(label: String, value: String, icon: ImageVector, color: Color, modifier: Modifier) {
+fun MetricCardModern(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier,
+) {
     Card(
-        modifier = modifier, shape = RoundedCornerShape(20.dp),
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)),
     ) {
         Row(Modifier.padding(16.dp).height(IntrinsicSize.Min)) {
@@ -588,9 +618,14 @@ fun MetricCardModern(label: String, value: String, icon: ImageVector, color: Col
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmergencyCardModern(onCall: () -> Unit, modifier: Modifier) {
+fun EmergencyCardModern(
+    onCall: () -> Unit,
+    modifier: Modifier,
+) {
     Card(
-        onClick = onCall, modifier = modifier, shape = RoundedCornerShape(20.dp),
+        onClick = onCall,
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2).copy(0.9f)),
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -608,7 +643,8 @@ fun EmergencyCardModern(onCall: () -> Unit, modifier: Modifier) {
 fun LiveIndicator() {
     val infiniteTransition = rememberInfiniteTransition()
     val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f, targetValue = 1f,
+        initialValue = 0.4f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
     )
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -620,7 +656,10 @@ fun LiveIndicator() {
 
 private fun formatHMS(s: Int): String = "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
 
-internal fun makeEmergencyCall(context: Context, number: String) {
+internal fun makeEmergencyCall(
+    context: Context,
+    number: String,
+) {
     try {
         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: Exception) {
