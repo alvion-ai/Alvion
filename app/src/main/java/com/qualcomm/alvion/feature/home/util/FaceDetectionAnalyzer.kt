@@ -20,16 +20,15 @@ class FaceDetectionAnalyzer(
     private val onDrowsy: () -> Unit,
     private val onDistracted: () -> Unit,
     private val onImageDimensions: (width: Int, height: Int) -> Unit,
-
     // Dependency injection for testability (defaults keep current behavior)
     private val detector: FaceProcessor = MlKitFaceProcessor(),
     private val mainThreadPoster: MainThreadPoster = AndroidMainThreadPoster(),
-    private val evaluator: FaceStateEvaluator = FaceStateEvaluator(
-        onDrowsy = onDrowsy,
-        onDistracted = onDistracted
-    )
+    private val evaluator: FaceStateEvaluator =
+        FaceStateEvaluator(
+            onDrowsy = onDrowsy,
+            onDistracted = onDistracted,
+        ),
 ) : ImageAnalysis.Analyzer {
-
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
         val mediaImage = imageProxy.image
@@ -39,11 +38,12 @@ class FaceDetectionAnalyzer(
         }
 
         val rotation = imageProxy.imageInfo.rotationDegrees
-        val (imageWidth, imageHeight) = ImageSizeCalculator.compute(
-            rotation = rotation,
-            width = imageProxy.width,
-            height = imageProxy.height
-        )
+        val (imageWidth, imageHeight) =
+            ImageSizeCalculator.compute(
+                rotation = rotation,
+                width = imageProxy.width,
+                height = imageProxy.height,
+            )
 
         // Post to main so Compose state updates are safe (in tests, poster can be synchronous)
         mainThreadPoster.post {
@@ -68,7 +68,11 @@ class FaceDetectionAnalyzer(
 
 /** Pure: easy JVM unit tests */
 object ImageSizeCalculator {
-    fun compute(rotation: Int, width: Int, height: Int): Pair<Int, Int> {
+    fun compute(
+        rotation: Int,
+        width: Int,
+        height: Int,
+    ): Pair<Int, Int> {
         return if (rotation == 90 || rotation == 270) {
             height to width
         } else {
@@ -86,7 +90,7 @@ class FaceStateEvaluator(
     private val onDistracted: () -> Unit,
     private val drowsyEyeThreshold: Float = 0.4f,
     private val distractionAngleThreshold: Float = 35f,
-    private val consecutiveFramesThreshold: Int = 5
+    private val consecutiveFramesThreshold: Int = 5,
 ) {
     private var drowsinessCounter = 0
     private var distractionCounter = 0
