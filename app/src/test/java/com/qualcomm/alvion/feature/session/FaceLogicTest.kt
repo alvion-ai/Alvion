@@ -54,7 +54,7 @@ class FaceLogicTest {
                 mainThreadPoster = mockPoster,
                 clock = { currentTime },
             )
-        evaluator.setMonitoringEnabled(true)
+        evaluator.monitoringEnabled = true
 
         val closed = face(leftEye = 0.1f, rightEye = 0.1f)
 
@@ -62,12 +62,12 @@ class FaceLogicTest {
         evaluator.evaluate(listOf(closed), 1000, 1000)
         assertEquals(0, drowsyCalls.get())
 
-        // Move time forward by 1.7s (threshold is 1.8s)
-        currentTime += 1700
+        // Move time forward by 2.9s (threshold is 3s)
+        currentTime += 2900
         evaluator.evaluate(listOf(closed), 1000, 1000)
         assertEquals(0, drowsyCalls.get())
 
-        // Move past 1.8s
+        // Move past 3s
         currentTime += 200
         evaluator.evaluate(listOf(closed), 1000, 1000)
         assertEquals(1, drowsyCalls.get())
@@ -83,16 +83,16 @@ class FaceLogicTest {
                 mainThreadPoster = mockPoster,
                 clock = { currentTime },
             )
-        evaluator.setMonitoringEnabled(true)
+        evaluator.monitoringEnabled = true
 
-        // Default threshold is 35, let's turn 40
-        val turned = face(rotY = 40f)
+        // Default threshold is 20, let's turn 25
+        val turned = face(rotY = 25f)
 
         evaluator.evaluate(listOf(turned), 1000, 1000)
         assertEquals(0, distractedCalls.get())
 
-        // Move time forward by 5.1s (threshold is 5s)
-        currentTime += 5100
+        // Move time forward by 4.1s (beyond threshold is 4s)
+        currentTime += 4100
         evaluator.evaluate(listOf(turned), 1000, 1000)
         assertEquals(1, distractedCalls.get())
     }
@@ -115,18 +115,12 @@ class FaceLogicTest {
         repeat(10) { evaluator.evaluate(listOf(veryOpenForward), 1000, 1000) }
 
         evaluator.finishCalibration()
-        evaluator.setMonitoringEnabled(true)
+        evaluator.monitoringEnabled = true
 
-        // Now eyes at 0.5 (which usually is "open") should be considered "closed"
-        // because the user's "open" baseline was 1.0 with 0 variance.
-        // (The logic uses Mean - 2*StdDev, coerced 0.15-0.75).
+        // Now eyes at 0.3 should be considered "closed"
         val halfClosed = face(leftEye = 0.3f, rightEye = 0.3f)
 
         evaluator.evaluate(listOf(halfClosed), 1000, 1000)
         currentTime += 2000
-
-        val drowsyCalls = AtomicInteger(0)
-        // We need a way to capture the callback since we can't easily swap the lambda
-        // In a real refactor we'd use a listener interface. For now, let's just verify logic runs.
     }
 }
