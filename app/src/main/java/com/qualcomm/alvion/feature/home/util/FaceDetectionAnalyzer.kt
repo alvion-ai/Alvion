@@ -23,12 +23,28 @@ class FaceDetectionAnalyzer(
     private val detector: FaceProcessor = MlKitFaceProcessor(),
     mainThreadPoster: MainThreadPoster = AndroidMainThreadPoster(),
 ) : ImageAnalysis.Analyzer {
+    // The "brain" is moved here for unit testing
+    val evaluator =
+        FaceStateEvaluator(
+            onDrowsy = onDrowsy,
+            onDistracted = onDistracted,
+            mainThreadPoster = mainThreadPoster,
+        )
 
-    val evaluator = FaceStateEvaluator(
-        onDrowsy = onDrowsy,
-        onDistracted = onDistracted,
-        mainThreadPoster = mainThreadPoster
-    )
+    // --- Delegation methods to keep HomeTab.kt working without changes ---
+    fun setMonitoringEnabled(enabled: Boolean) {
+        evaluator.monitoringEnabled = enabled
+    }
+
+    fun startCalibration(framesPerBucket: Int = 45) = evaluator.startCalibration(framesPerBucket)
+
+    fun setCalibrationTarget(targetBucket: String?) = evaluator.setCalibrationTarget(targetBucket)
+
+    fun getCalibrationCount(targetBucket: String): Int = evaluator.getCalibrationCount(targetBucket)
+
+    fun finishCalibration(): Boolean = evaluator.finishCalibration()
+
+    fun isCalibrationActive(): Boolean = evaluator.isCalibrationActive()
 
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
@@ -36,7 +52,7 @@ class FaceDetectionAnalyzer(
 
         val rotation = imageProxy.imageInfo.rotationDegrees
         val (width, height) = ImageSizeCalculator.compute(rotation, imageProxy.width, imageProxy.height)
-        
+
         onImageDimensions(width, height)
 
         val image = InputImage.fromMediaImage(mediaImage, rotation)
@@ -57,11 +73,12 @@ class FaceStateEvaluator(
     private val onDrowsy: () -> Unit,
     private val onDistracted: () -> Unit,
     private val mainThreadPoster: MainThreadPoster = AndroidMainThreadPoster(),
-    private val clock: () -> Long = { System.currentTimeMillis() }
+    private val clock: () -> Long = { System.currentTimeMillis() },
 ) {
     // --- Constants ---
     private val DROWSY_TRIGGER_MS = 1800L
-    private val DISTRACTION_TRIGGER_MS = 5000L
+    private val DISTRACTION_MIRROR_MS = 8000L
+    private val DISTRACTION_BEYOND_MS = 4000L
     private val CALLBACK_COOLDOWN_MS = 3000L
     private val GRACE_MS = 400L
     private val EMA_ALPHA = 0.45f
@@ -77,26 +94,32 @@ class FaceStateEvaluator(
 
     private var forwardYawBaseline: Float? = null
     private var calibrationForwardBaseline: Float? = null
-    private var distractionStartThreshold = 35f
-    
+    private var distractionStartThreshold = 20f
+
     private var eyeScoreEma: Float? = null
     private var eyeClosedStartTime: Long? = null
     private var distractionStartTime: Long? = null
     private var lastValidMetricsTime = 0L
     private var hasFiredDrowsyForThisClosure = false
-    
+
     private var lastDrowsyCallbackTime = 0L
     private var lastDistractionCallbackTime = 0L
 
     private val bucketYawMeans = mutableMapOf<String, Float>()
     private val closedThresholdByBucket = mutableMapOf<String, Float>()
-    private val openEyeStatsByBucket = mutableMapOf(
-        "forward" to RunningStats(), "left" to RunningStats(), "right" to RunningStats()
-    )
+    private val openEyeStatsByBucket =
+        mutableMapOf(
+            "forward" to RunningStats(),
+            "left" to RunningStats(),
+            "right" to RunningStats(),
+        )
 
-    fun setMonitoringEnabled(enabled: Boolean) { monitoringEnabled = enabled }
-    fun setCalibrationTarget(bucket: String?) { calibrationTargetBucket = bucket }
+    fun setCalibrationTarget(bucket: String?) {
+        calibrationTargetBucket = bucket
+    }
+
     fun isCalibrationActive() = isCalibrating
+
     fun getCalibrationCount(bucket: String) = openEyeStatsByBucket[bucket]?.count ?: 0
 
     fun startCalibration(frames: Int = 45) {
@@ -119,22 +142,23 @@ class FaceStateEvaluator(
         if (forwardStats.count < 5) return false
 
         forwardYawBaseline = forwardStats.yawMean()
-        var maxMirrorYawAbs = 0f
 
         // 1. Process existing buckets
         openEyeStatsByBucket.forEach { (name, stats) ->
             if (stats.count < 5) return@forEach
             val relYaw = stats.yawMean() - forwardYawBaseline!!
             bucketYawMeans[name] = relYaw
-            if (name != "forward") maxMirrorYawAbs = max(maxMirrorYawAbs, abs(relYaw))
-            
-            val threshold = if (stats.eyeSampleCount > 5) {
-                (stats.eyeMean - 2f * stats.eyeStdDev()).coerceIn(0.15f, 0.75f)
-            } else 0.40f
+
+            val threshold =
+                if (stats.eyeSampleCount > 5) {
+                    (stats.eyeMean - 2f * stats.eyeStdDev()).coerceIn(0.15f, 0.75f)
+                } else {
+                    0.40f
+                }
             closedThresholdByBucket[name] = threshold
         }
 
-        // 2. MIRROR SYMMETRY LOGIC: 
+        // 2. MIRROR SYMMETRY LOGIC:
         if (closedThresholdByBucket.containsKey("left") && !closedThresholdByBucket.containsKey("right")) {
             bucketYawMeans["right"] = -bucketYawMeans["left"]!!
             closedThresholdByBucket["right"] = closedThresholdByBucket["left"]!!
@@ -143,7 +167,10 @@ class FaceStateEvaluator(
             closedThresholdByBucket["left"] = closedThresholdByBucket["right"]!!
         }
 
-        distractionStartThreshold = if (maxMirrorYawAbs > 0) maxMirrorYawAbs + 5f else 35f
+        // Use a fixed threshold for "looking away" (20 degrees).
+        // This ensures that looking at mirrors is treated as a potential distraction
+        // and suppresses false drowsiness alerts caused by head angles.
+        distractionStartThreshold = 20f
         return closedThresholdByBucket.containsKey("forward")
     }
 
@@ -158,7 +185,11 @@ class FaceStateEvaluator(
         openEyeStatsByBucket.values.forEach { it.reset() }
     }
 
-    fun evaluate(faces: List<Face>, width: Int, height: Int) {
+    fun evaluate(
+        faces: List<Face>,
+        width: Int,
+        height: Int,
+    ) {
         val now = clock()
         val primaryFace = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
 
@@ -189,12 +220,27 @@ class FaceStateEvaluator(
         val left = primaryFace.leftEyeOpenProbability
         val right = primaryFace.rightEyeOpenProbability
 
-        if (left != null && right != null) {
-            val penalty = (if (abs(rotZ) > 30f) 0.15f else 0f) + 
-                          (if (abs(rotX) > 20f) 0.10f else 0f) + 
-                          (if (yawAbs > 25f) 0.10f else 0f)
-            val currentScore = min(left - penalty, right - penalty).coerceIn(0f, 1f)
-            eyeScoreEma = if (eyeScoreEma == null) currentScore else (1f - EMA_ALPHA) * eyeScoreEma!! + EMA_ALPHA * currentScore
+        if (left != null || right != null) {
+            val penalty =
+                (if (abs(rotZ) > 30f) 0.15f else 0f) +
+                    (if (abs(rotX) > 20f) 0.10f else 0f) +
+                    (if (yawAbs > 25f) 0.10f else 0f)
+
+            // Use the minimum of available eye probabilities
+            val rawScore =
+                when {
+                    left != null && right != null -> min(left, right)
+                    left != null -> left
+                    else -> right!!
+                }
+
+            val currentScore = (rawScore - penalty).coerceIn(0f, 1f)
+            eyeScoreEma =
+                if (eyeScoreEma == null) {
+                    currentScore
+                } else {
+                    (1f - EMA_ALPHA) * eyeScoreEma!! + EMA_ALPHA * currentScore
+                }
         }
 
         if (isCalibrating && calibrationTargetBucket != null) {
@@ -202,21 +248,31 @@ class FaceStateEvaluator(
             if (target == "forward") {
                 calibrationForwardBaseline = openEyeStatsByBucket["forward"]?.yawMean() ?: rotY
             }
-            
-            val isPoseCorrect = when(target) {
-                "forward" -> abs(yawDelta) < 5f
-                "left" -> yawDelta > 6f    // User Left = Camera Right
-                "right" -> yawDelta < -6f  // User Right = Camera Left
-                else -> false
-            }
+
+            val isPoseCorrect =
+                when (target) {
+                    "forward" -> abs(yawDelta) < 5f
+                    "left" -> yawDelta > 6f // User Left = Camera Right
+                    "right" -> yawDelta < -6f // User Right = Camera Left
+                    else -> false
+                }
             if (isPoseCorrect) openEyeStatsByBucket[target]?.add(eyeScoreEma, rotY)
         }
 
         if (monitoringEnabled) {
-            // Distraction check
-            if (yawAbs > distractionStartThreshold) {
+            // 1. Distraction check
+            val isDistractedByPose = yawAbs > distractionStartThreshold
+
+            if (isDistractedByPose) {
                 if (distractionStartTime == null) distractionStartTime = now
-                if (now - distractionStartTime!! >= DISTRACTION_TRIGGER_MS) {
+
+                // Determine timeout based on calibrated mirror angles
+                val maxMirrorYawAbs = max(abs(bucketYawMeans["left"] ?: 0f), abs(bucketYawMeans["right"] ?: 0f))
+                val mirrorThreshold = if (maxMirrorYawAbs > 0) maxMirrorYawAbs + 10f else 45f
+
+                val triggerMs = if (yawAbs <= mirrorThreshold) DISTRACTION_MIRROR_MS else DISTRACTION_BEYOND_MS
+
+                if (now - distractionStartTime!! >= triggerMs) {
                     if (now - lastDistractionCallbackTime >= CALLBACK_COOLDOWN_MS) {
                         lastDistractionCallbackTime = now
                         mainThreadPoster.post(onDistracted)
@@ -226,9 +282,13 @@ class FaceStateEvaluator(
                 distractionStartTime = null
             }
 
-            // Drowsiness check
+            // 2. Drowsiness check
+            // We run this regardless of distraction pose so that closing eyes while looking away is detected.
             eyeScoreEma?.let { score ->
-                val bucket = bucketYawMeans.minByOrNull { abs(it.value - yawDelta) }?.key ?: "forward"
+                val bucket =
+                    bucketYawMeans.minByOrNull {
+                        abs(it.value - yawDelta)
+                    }?.key ?: "forward"
                 val threshold = closedThresholdByBucket[bucket] ?: 0.40f
 
                 if (score < threshold) {
@@ -264,7 +324,10 @@ class FaceStateEvaluator(
         var yawSum = 0f
         var eyeSampleCount = 0
 
-        fun add(eye: Float?, yaw: Float) {
+        fun add(
+            eye: Float?,
+            yaw: Float,
+        ) {
             count++
             yawSum += yaw
             if (eye != null) {
@@ -276,14 +339,25 @@ class FaceStateEvaluator(
         }
 
         fun yawMean() = if (count > 0) yawSum / count else 0f
+
         fun eyeStdDev() = if (eyeSampleCount > 1) sqrt(eyeM2 / (eyeSampleCount - 1)) else 0f
-        fun reset() { count = 0; eyeMean = 0f; eyeM2 = 0f; yawSum = 0f; eyeSampleCount = 0 }
+
+        fun reset() {
+            count = 0
+            eyeMean = 0f
+            eyeM2 = 0f
+            yawSum = 0f
+            eyeSampleCount = 0
+        }
     }
 }
 
 object ImageSizeCalculator {
-    fun compute(rotation: Int, width: Int, height: Int): Pair<Int, Int> =
-        if (rotation == 90 || rotation == 270) height to width else width to height
+    fun compute(
+        rotation: Int,
+        width: Int,
+        height: Int,
+    ): Pair<Int, Int> = if (rotation == 90 || rotation == 270) height to width else width to height
 }
 
 interface FaceProcessor {
@@ -291,10 +365,14 @@ interface FaceProcessor {
 }
 
 class MlKitFaceProcessor : FaceProcessor {
-    private val detector = FaceDetection.getClient(FaceDetectorOptions.Builder()
-        .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
-        .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-        .build())
+    private val detector =
+        FaceDetection.getClient(
+            FaceDetectorOptions.Builder()
+                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+                .build(),
+        )
+
     override fun process(image: InputImage): Task<List<Face>> = detector.process(image)
 }
 
@@ -304,5 +382,6 @@ interface MainThreadPoster {
 
 class AndroidMainThreadPoster : MainThreadPoster {
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
     override fun post(action: () -> Unit) = Unit.also { handler.post(action) }
 }
