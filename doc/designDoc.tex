@@ -226,77 +226,50 @@ Through these objectives, ALVION demonstrates a concrete pathway from concept to
 
 \begin{description}
 
-  \item[ALVION] The Android-based driver drowsiness and distraction detection mobile application developed for this capstone project. Runs entirely on-device to ensure privacy and real-time performance.
+    \item[ALVION] The Android-based driver drowsiness and distraction detection mobile application developed for this capstone project. Runs entirely on-device to ensure privacy and real-time performance.
 
-  \item[Driver Monitoring System (DMS)] A safety technology that uses sensors or cameras to assess driver attention, alertness, and potential fatigue while operating a vehicle.
+    \item[Driver Monitoring System (DMS)] A safety technology that uses sensors or cameras to assess driver attention, alertness, and potential fatigue while operating a vehicle.
 
-  \item[PERCLOS (Percentage of Eyelid Closure)] A standard metric used in drowsiness detection. It represents the proportion of time a driver’s eyes are at least 80\% closed over a given time window.
+    \item[Head Yaw] The horizontal rotation of a driver’s head relative to the camera. Excessive yaw over time indicates potential distraction or inattention.
 
-  \item[Head Yaw] The horizontal rotation of a driver’s head relative to the camera. Excessive yaw over time indicates potential distraction or inattention.
+    \item[Yaw Delta] The angular difference between the driver's current head yaw and their calibrated forward baseline.
 
-  \item[Android Studio] The official integrated development environment (IDE) for Android applications. Used to develop and build the ALVION mobile app using Kotlin.
+    \item[Android Studio] The official integrated development environment (IDE) for Android applications. Used to develop and build the ALVION mobile app using Kotlin.
 
-  \item[Kotlin] A modern programming language fully supported by Android, known for concise syntax and null safety. Used as the primary implementation language for ALVION.
+    \item[Kotlin] A modern programming language fully supported by Android, known for concise syntax and null safety. Used as the primary implementation language for ALVION.
 
-  \item[Jetpack Compose] Android’s declarative UI framework written in Kotlin. It simplifies the creation of reactive, adaptive user interfaces without the need for XML layout files.
+    \item[Jetpack Compose] Android’s declarative UI framework written in Kotlin. It simplifies the creation of reactive, adaptive user interfaces without the need for XML layout files.
 
-  \item[CameraX] A Jetpack library that provides easy access to camera functions such as preview, capture, and frame analysis. Used in ALVION to stream frames for real-time inference.
+    \item[CameraX] A Jetpack library that provides easy access to camera functions such as preview, capture, and frame analysis. Used in ALVION to stream frames for real-time inference.
 
-  \item[TensorFlow Lite (TFLite)] A lightweight, cross-platform runtime for executing trained machine learning models on mobile and embedded devices. Handles on-device inference in ALVION.
+    \item[ML Kit Face Detection] Google’s on-device machine learning SDK used in ALVION to provide real-time eye-openness probabilities and head pose (Euler angles) without requiring a custom-trained model.
 
-  \item[NNAPI (Neural Networks API)] Android’s standard interface that allows apps to access on-device accelerators such as GPUs, DSPs, or NPUs for running ML workloads efficiently.
+    \item[Firebase Authentication] A cloud-based service used to manage user identity and secure login flows within the application.
 
-  \item[Qualcomm Neural Network (QNN) Runtime] Qualcomm’s proprietary runtime for accelerating AI models on Snapdragon’s Hexagon DSP/HTP cores. Used optionally for performance optimization.
+    \item[Calibration Buckets] Specific data collections (e.g., "forward", "left", "right") used during the setup phase to establish baseline eye-openness and head-pose values for an individual driver.
 
-  \item[ML Kit] Google’s on-device machine learning SDK that provides ready-to-use APIs for vision tasks such as face detection, eye openness estimation, and head pose detection.
+    \item[Mirror Symmetry Logic] A heuristic used during calibration to infer eye-closure thresholds for one side of the face based on the other, improving system robustness when a driver only calibrates one side mirror.
 
-  \item[MediaPipe] An open-source framework for building cross-platform ML pipelines, including facial landmark detection. Used as an alternative to ML Kit for greater control over signals.
+    \item[Exponential Moving Average (EMA)] A statistical smoothing technique applied to eye-openness scores to reduce noise and prevent flickering alerts caused by momentary blinks or sensor jitters.
 
-  \item[OpenCV] Open-source computer vision library providing image-processing tools such as resizing, cropping, and overlay drawing. Used optionally for debugging or preprocessing.
+    \item[Debounce / Alert Cooldown] Software mechanisms that prevent repeated, rapid-fire triggers of an alert within a short time window, ensuring that warnings remain helpful rather than distracting.
 
-  \item[PyTorch] A machine learning framework used for training models off-device. In ALVION, it can be used to train lightweight classifiers before conversion to TFLite.
+    \item[Latency] The time delay between camera frame capture and alert output. Low latency is critical to ensure timely driver warnings.
 
-  \item[ONNX (Open Neural Network Exchange)] A standardized model format that enables conversion and interoperability between ML frameworks like PyTorch and TensorFlow.
+    \item[FPS (Frames Per Second)] A measure of how many frames are processed per second during video analysis. Maintaining $\geq$15 FPS ensures smooth real-time inference.
 
-  \item[Quantization] A model optimization technique that reduces numerical precision (e.g., from 32-bit floats to 8-bit integers) to improve speed and reduce memory use during inference.
+    \item[On-device Inference] The process of running AI models locally on the phone rather than sending data to cloud servers. Essential for preserving privacy and minimizing delay.
 
-  \item[Debounce Logic] A software mechanism that prevents repeated triggers of an alert within a short time window, reducing false positives in drowsiness detection.
-
-  \item[Sliding Window Aggregation] A temporal data analysis technique that aggregates frame-level results (e.g., eye openness) over a fixed time window to detect sustained patterns such as drowsiness.
-
-  \item[BYOM (Bring Your Own Model)] A Qualcomm workflow allowing developers to integrate custom-trained ML models into Snapdragon devices using the QNN SDK.
-
-  \item[MVP (Minimum Viable Product)] The simplest version of the app that demonstrates key functionality (on-device detection, alerts, and adjustable thresholds) without full feature expansion.
-
-  \item[Latency] The time delay between camera frame capture and alert output. Low latency is critical to ensure timely driver warnings.
-
-  \item[FPS (Frames Per Second)] A measure of how many frames are processed per second during video analysis. Maintaining $\geq$15 FPS ensures smooth real-time inference.
-
-  \item[On-device Inference] The process of running AI models locally on the phone rather than sending data to cloud servers. Essential for preserving privacy and minimizing delay.
-
-  \item[Privacy by Design] A principle ensuring that user data (especially facial video) remains on the device and is not transmitted externally without explicit consent.
-
-  \item[Thermal Throttling] Automatic performance reduction that occurs when a device’s temperature rises beyond safe limits. ALVION monitors this to adjust inference rate dynamically.
-
-  \item[Drowsiness Alert Cooldown] A configurable delay after an alert during which no new alerts are triggered, preventing repetitive warnings and user annoyance.
-
-  \item[Subject-wise Split] A data handling practice in ML ensuring that images or videos of the same person appear only in either training or testing sets, avoiding data leakage.
-
-  \item[Dataset Licensing (Research Use Only)] Legal restrictions defining how public datasets (e.g., CEW, MRL, NTHU-DDD) can be used. ALVION uses only datasets with academic/research permissions.
+    \item[Privacy by Design] A principle ensuring that user data (especially facial video) remains on the device and is not transmitted externally without explicit consent.
 
 \end{description}
 
-
-
-
 \subsection{User Groups}
-% Primary driver (legacy vehicle owner), tester, demo user.
-This section describes the primary user groups who will interact with the Distracted/Drowsy Driving Detection System. Each group represents a distinct role with unique goals and responsibilities related to the system's functionality and operation.
-\begin{itemize}    \item {Drivers:} Main end users; rely on alerts
-    \item {Fleet Managers / Supervisors:} oversee multiple drivers, review aggregated logs
-    \item {System Administrators:} Maintain the deployment, handle privacy configs and updates
-    \item {Developers / Maintenance Engineers (Internal):} internal users who maintain and enhance the app
-    
+This section describes the primary user groups who will interact with ALVION. Each group represents a distinct role with specific goals related to the system's functionality and maintenance.
+
+\begin{itemize}
+    \item \textbf{End Users (Drivers):} Primary users who run the app during driving and rely on real-time alerts and feedback to help detect potential drowsiness or distraction.
+    \item \textbf{Developers / Maintainers:} Internal users responsible for building, testing, maintaining, and improving the system (e.g., updating detection logic, calibration flow, app UX, and deployment/configuration).
 \end{itemize}
 
 \subsection{Project Context}
@@ -356,9 +329,6 @@ Each scenario corresponds to a use case identified in the Project Scope diagram 
 
   \item \textbf{Manage App Deployment (System Administrator):}  
   The system administrator deploys updates, manages app permissions, and enforces organizational settings through Android device management tools.
-
-  \item \textbf{View Aggregated Reports (Fleet Manager):}  
-  In a potential future version, fleet managers could access a dashboard summarizing aggregated alert data across multiple drivers to assess safety trends and rest policies.
 
 \end{itemize}
 
