@@ -442,52 +442,34 @@ The ALVION system shall implement the following core functional features to enab
 
 % ---------------- 4.2.1.2 Data Requirements ----------------
 \subsubsection{Data Requirements}
-The ALVION application processes and manages several categories of data required for on-device drowsiness and distraction detection. These data requirements describe what information is captured, derived, stored, and protected within the system.
+The ALVION application manages data related to user identity, real-time facial analysis, and session-specific calibration. Since the system utilizes a pre-trained ML Kit model, data handling is focused on user authentication and the transient processing of camera frames.
 
 \paragraph{Data Inputs}
 \begin{itemize}
-  \item \textbf{Camera Frames:} RGB frames captured from the front-facing camera (resolution up to 1920×1080, $\ge$15 FPS) using the CameraX API.
-  \item \textbf{Sensor Metadata:} Device orientation and timestamp values from Android SensorManager for head-pose compensation.
+    \item \textbf{User Authentication Data:} Email and password credentials provided during login/signup, managed via Firebase Authentication.
+    \item \textbf{Live Camera Feed:} RGB frames captured via CameraX, used exclusively for real-time inference and never stored.
+    \item \textbf{Facial Landmark Metrics:} Raw probability scores (eye-openness) and Euler angles (head rotation) provided by the ML Kit Face Detection API.
 \end{itemize}
 
-\paragraph{Data Processing and Outputs}
+\paragraph{Data Processing and Storage}
 \begin{itemize}
-  \item \textbf{Processed Metrics:} Per-frame eye-openness ratio (PERCLOS), head yaw/pitch angles, and attention state labels (alert / drowsy / distracted).
-  \item \textbf{Alerts:} Boolean and string messages delivered to the UI and audio subsystem indicating driver status or safety warnings.
+    \item \textbf{User Profiles (Cloud):} Basic user identity data is stored securely in Firebase to manage accounts across sessions.
+    \item \textbf{Calibration Baselines (Local):} Temporary yaw offsets and eye-closure thresholds are calculated during the calibration phase. These are stored locally in SharedPreferences to maintain the user's "Forward" baseline for the duration of the app's use.
+    \item \textbf{Session Metrics (Volatile):} Running averages and "EMA" (Exponential Moving Average) scores for eye openness are maintained in-memory. This data is used for real-time alerting and is discarded once the monitoring session ends.
 \end{itemize}
 
-\paragraph{Data Storage Requirements}
+\paragraph{Data Quality and Privacy}
 \begin{itemize}
-  \item \textbf{Local Storage:} Session summaries and calibration data stored in JSON or SQLite format under app-scoped storage. No cloud database is used.
-  \item \textbf{Retention:} Logs persist until manually deleted by the user. Temporary inference buffers are discarded after each session.
+    \item \textbf{On-Device Processing:} All facial analysis is performed locally. No raw images, video, or biometric "face-print" data is transmitted to Firebase or any external server.
+    \item \textbf{Threshold Clamping:} Eye-openness values are strictly clamped between 0 and 1 to ensure consistent alert triggers across different lighting conditions.
+    \item \textbf{Secure Authentication:} Password management and token handling are delegated to Firebase, ensuring industry-standard security for user accounts.
 \end{itemize}
 
-\paragraph{Data Relationships}
-Session data link driver ID, timestamps, and alert metrics to a single session record:
-\[
-\textit{Session}(session\_id, timestamp, perclos\_avg, alert\_count, duration)
-\]
-Processed data are read-only to other modules; only summary statistics are exposed to the UI.
+\textit{These requirements confirm that while user identity is managed in the cloud, the privacy-sensitive "safety" data remains volatile and local to the driver's device.}
 
-\paragraph{Data Quality and Integrity}
-\begin{itemize}
-  \item All timestamps follow ISO 8601 format.
-  \item Invalid or missing sensor frames are ignored, not extrapolated.
-  \item Feature values are clamped to physical limits (0 $\le$ PERCLOS $\le$ 1).
-\end{itemize}
-
-\paragraph{Data Privacy and Security}
-\begin{itemize}
-  \item All data remain on-device in encrypted storage (UP-10, UE-02).
-  \item No identifiable images or raw video are transmitted externally.
-  \item Inference executes locally using Qualcomm QNN / Android NNAPI.
-\end{itemize}
-
-\textit{These data specifications define the system’s information model and handling rules. They are not user functional requirements but underpin compliance with non-functional constraints on privacy, performance, and reliability.}
 
 % ---------- 4.2.2 Non-functional Requirements ----------
 \subsection{Non-functional Requirements}
-
 
 % 4.2.3.1 Product: Usability Requirements
 \subsubsection{Product: Usability Requirements}
