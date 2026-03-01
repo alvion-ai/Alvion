@@ -409,35 +409,35 @@ This section outlines the quality and technical constraints of the ALVION system
 The ALVION system shall implement the following core functional features to enable real-time driver monitoring and alerting:
 
 \begin{itemize}
-  \item \textbf{SF-01: Real-Time Drowsiness Detection} —  
-  The system shall continuously analyze the driver’s eye openness using the Percentage of Eyelid Closure (PERCLOS) metric to determine signs of drowsiness. When the eyes remain closed beyond a configurable threshold, a drowsiness alert shall be triggered.
+    \item \textbf{SF-01: Real-Time Drowsiness Detection} —
+    The system shall utilize the ML Kit Face Detection API to analyze eye-openness probabilities. Using the PERCLOS metric, it shall trigger an alert when eyelid closure exceeds a defined duration (default 1800ms).
 
-  \item \textbf{SF-02: Distraction Detection} —  
-  The system shall track the driver’s head yaw (horizontal rotation) and issue a distraction alert when the driver looks away from the forward direction for more than a defined dwell time.
+    \item \textbf{SF-02: Distraction Detection} —
+    The system shall track head yaw (horizontal rotation) and issue a distraction alert if the driver's head deviates from the calibrated forward baseline beyond a threshold for a set duration.
 
-  \item \textbf{SF-03: Alert Mechanisms} —  
-  The system shall deliver real-time alerts using audio tones, vibration feedback, and visual overlay cues to ensure the driver’s attention is regained promptly.
+    \item \textbf{SF-03: Multi-Stage Alert Mechanisms} —
+    The system shall deliver synchronous alerts using audio tones, haptic vibration, and visual UI overlays to ensure the driver is promptly notified of safety risks.
 
-  \item \textbf{SF-04: Configurable Sensitivity and Thresholds} —  
-  The system shall allow users to adjust detection sensitivity, eyelid-closure duration, yaw angle threshold, and alert cooldown periods via the Settings interface.
+    \item \textbf{SF-04: Account and History Management} —
+    The system shall provide a secure login interface via Firebase Authentication, allowing drivers to maintain personal session statistics and persistent device configurations.
 
-  \item \textbf{SF-05: Camera Calibration and Alignment} —  
-  On initial launch or when lighting conditions change, the system shall prompt the user to align the front-facing camera for optimal face tracking and detection accuracy.
+    \item \textbf{SF-05: Dynamic Calibration and Mirror Logic} —
+    The system shall establish a forward-facing baseline during setup. It shall include "Mirror Symmetry" logic to automatically infer detection thresholds for side-viewing angles based on partial user calibration.
 
-  \item \textbf{SF-06: Session Control} —  
-  Users shall be able to start and stop monitoring sessions manually, enabling or releasing the camera and inference modules as needed.
+    \item \textbf{SF-06: Configurable Thresholds} —
+    The system shall allow the driver to adjust eye-closure sensitivity, head-pose thresholds, and the "alert cooldown" period via a dedicated Settings interface.
 
-  \item \textbf{SF-07: Snooze and Acknowledge Alerts} —  
-  Users shall be able to acknowledge or temporarily snooze alerts to prevent repeated notifications during rest or recovery.
+    \item \textbf{SF-07: Session Control and Lifecycle} —
+    The application shall allow users to manually start and stop monitoring, correctly managing the Android CameraX lifecycle and ML inference pipeline.
 
-  \item \textbf{SF-08: Session Summary and Reporting} —  
-  After each session, the app shall display a local summary including the number and type of alerts triggered, session duration, and driver responsiveness metrics.
+    \item \textbf{SF-08: Snooze and Acknowledge Logic} —
+    The system shall provide interactive UI elements to acknowledge or temporarily snooze active alerts, preventing repetitive notifications once the driver has regained focus.
 
-  \item \textbf{SF-09: Privacy and Data Protection} —  
-  All facial analysis and inference shall occur locally on the device. No video or image data shall be transmitted externally without explicit user consent.
+    \item \textbf{SF-09: Local Privacy and Data Protection} —
+    All frame analysis shall occur strictly on-device. The system shall store session summaries and event logs in secure, app-scoped storage, with no transmission of raw video data to external servers.
 
-  \item \textbf{SF-10: Administrative Configuration} —  
-  System administrators shall be able to configure and deploy the app across managed Android devices using enterprise deployment tools and preset configurations.
+    \item \textbf{SF-10: Session Summary Reporting} —
+    Upon ending a session, the app shall generate a local report summarizing the frequency and type of alerts triggered, helping the driver evaluate their fatigue patterns.
 \end{itemize}
 
 % ---------------- 4.2.1.2 Data Requirements ----------------
