@@ -265,32 +265,33 @@ Through these objectives, ALVION demonstrates a concrete pathway from concept to
 \end{description}
 
 \subsection{User Groups}
-This section describes the primary user groups who will interact with ALVION. Each group represents a distinct role with specific goals related to the system's functionality and maintenance.
+This section describes the primary user groups who interact with ALVION today, as well as optional stakeholders shown in the context/scope diagrams as potential future extensions.
 
 \begin{itemize}
     \item \textbf{End Users (Drivers):} Primary users who run the app during driving and rely on real-time alerts and feedback to help detect potential drowsiness or distraction.
-    \item \textbf{Developers / Maintainers:} Internal users responsible for building, testing, maintaining, and improving the system (e.g., updating detection logic, calibration flow, app UX, and deployment/configuration).
+    \item \textbf{Developers / Maintainers:} Internal users responsible for building, testing, maintaining, and improving the system (e.g., updating detection logic, calibration flow, app UX, and configuration).
+    \item \textbf{Optional / Future Stakeholders:} Roles such as fleet managers or system administrators may be supported in later iterations (e.g., aggregated summaries or managed configuration), but are not part of the current MVP.
 \end{itemize}
 
 \subsection{Project Context}
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.95\textwidth]{assets/context_diagram_v1.png}
-\caption{System context Diagram for the AlVION driver drowsiness and distraction detection mobile application}
-\label{fig:context}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{assets/context_diagram_v1.png}
+    \caption{System context diagram for the ALVION driver drowsiness and distraction detection mobile application}
+    \label{fig:context}
 \end{figure}
 
 \noindent
-The context diagram illustrates how the ALVION mobile application interacts with its surrounding environment. 
-The driver provides a live video feed through the smartphone camera and receives real-time alerts through audio, vibration, or visual cues. 
-The application communicates with the Android OS using standard APIs for camera access, vibration control, and storage management. 
-It performs on-device inference via the TensorFlow Lite runtime accelerated through Qualcomm’s QNN or Android’s NNAPI interface. 
-Optional connections—such as aggregated summaries for fleet managers, managed configurations for system administrators, or diagnostic feedback for developers—represent potential future extensions.
-  
-\subsection{Functional Requirements}
+The context diagram illustrates how the ALVION mobile application interacts with its surrounding environment.
+The driver provides a live camera feed through the smartphone’s front-facing camera and receives real-time alerts through audio, vibration, and visual cues.
+The application communicates with the Android OS using standard APIs for camera access, permissions, audio output, vibration, and local storage.
+Core detection is performed on-device using a mobile face-detection pipeline (e.g., ML Kit) to estimate signals such as eye openness and head pose for time-based alerting.
+The system may also integrate cloud-backed application features such as authentication (e.g., Firebase) to support a realistic app workflow.
+Optional connections shown in the diagram (e.g., aggregated summaries or managed configuration) represent potential future extensions rather than required MVP functionality.
 
+\subsection{Functional Requirements}
 \subsubsection{Project Scope}
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.95\textwidth]{assets/project_scope_v1.jpg}
 \caption{Scope diagram to illustrate major user interactions with ALVION}
@@ -298,37 +299,32 @@ Optional connections—such as aggregated summaries for fleet managers, managed 
 \end{figure}
 
 \subsubsection{User Scenarios}
-The following scenarios describe how different actors interact with the ALVION mobile application.  
-Each scenario corresponds to a use case identified in the Project Scope diagram and summarized in Appendix~U.
-
+The following scenarios describe how end users interact with the ALVION mobile application during setup, monitoring, and post-session review. Each scenario corresponds to a use case identified in the Project Scope diagram and summarized in Appendix~U.
 \begin{itemize}
 
-  \item \textbf{Start Monitoring Session:}  
-  The driver launches the ALVION application, grants camera permissions, and begins a monitoring session. The app activates the front-facing camera through CameraX and initializes on-device ML inference to begin analyzing the driver’s eye openness and head orientation in real time.
+    \item \textbf{Start Monitoring Session:}
+    The driver launches ALVION, completes sign-in if required, grants camera permissions, and starts a monitoring session. The app activates the front-facing camera through CameraX and initializes the face-detection pipeline to estimate eye openness and head pose in real time.
 
-  \item \textbf{Receive Drowsiness Alert:}  
-  During monitoring, ALVION continuously evaluates the Percentage of Eyelid Closure (PERCLOS). If the eyes remain closed beyond the configured duration threshold, the system issues an audible and visual alert to prompt the driver to regain focus.
+    \item \textbf{Receive Drowsiness Alert:}
+    During monitoring, ALVION evaluates eye-closure behavior over time. If eye closure persists beyond a configured duration threshold, the system issues an audible and on-screen alert (and optional vibration) to prompt the driver to refocus or take a break.
 
-  \item \textbf{Receive Distraction Alert:}  
-  The application monitors head yaw angle using the face-detection model. If the driver’s head remains turned away from the forward direction for longer than the threshold period, a distraction alert is triggered.
+    \item \textbf{Receive Distraction Alert:}
+    ALVION monitors head orientation relative to the calibrated forward baseline. If the driver’s head remains turned away from the forward direction beyond the configured threshold window, the system triggers a distraction alert.
 
-  \item \textbf{Acknowledge or Snooze Alert (Extend):}  
-  After receiving a drowsiness or distraction alert, the driver can choose to acknowledge it or temporarily snooze further alerts for a short cooldown period to prevent repetitive warnings.
+    \item \textbf{Acknowledge or Mute Alerts:}
+    After an alert is issued, the driver can acknowledge it and, if needed, temporarily mute alerts. The system applies a cooldown interval to prevent repeated notifications in rapid succession.
 
-  \item \textbf{Adjust Sensitivity and Settings:}  
-  The driver opens the Settings screen to adjust thresholds for eye-closure time, yaw angle, or alert cooldown. These preferences are stored locally and persist between sessions.
+    \item \textbf{Adjust Settings in Profile Tab:}
+    The driver opens the Profile/Settings screen to update preferences (e.g., alert enablement, sensitivity thresholds, vibration/sound options, and emergency contact settings). Settings persist between sessions and may be stored securely (e.g., via Firebase) depending on the current implementation.
 
-  \item \textbf{Calibrate / Align Camera (Include):}  
-  On first use or when lighting changes, the driver may be prompted to align the camera for optimal face tracking. The app displays live feedback until proper alignment is achieved.
+    \item \textbf{Calibrate / Align Camera:}
+    On first use, after device repositioning, or when calibration quality degrades, the driver completes a short calibration flow to align the camera and establish a baseline. The app provides live feedback to guide the driver until calibration succeeds.
 
-  \item \textbf{View Alert Summary (Optional):}  
-  After a session ends, the driver can view a local summary showing the number and type of alerts triggered. This information helps evaluate driving habits or fatigue patterns.
+    \item \textbf{Emergency Contact / Call for Help:}
+    If the driver believes they are unsafe to continue (e.g., repeated drowsiness warnings), the driver can use an emergency action to place a call to \textbf{911} or a designated family member/emergency contact. This action is intentionally user-initiated to avoid accidental calls.
 
-  \item \textbf{Export Logs (Optional):}  
-  Users can export anonymized event logs to share with researchers or safety supervisors. This function remains offline and requires explicit user consent.
-
-  \item \textbf{Manage App Deployment (System Administrator):}  
-  The system administrator deploys updates, manages app permissions, and enforces organizational settings through Android device management tools.
+    \item \textbf{View Session Summary (Optional):}
+    After ending a session, the driver can view a summary of monitoring results (e.g., count and types of alerts). This information can help the driver reflect on fatigue patterns and adjust future driving behavior.
 
 \end{itemize}
 
