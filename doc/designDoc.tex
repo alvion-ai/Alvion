@@ -124,11 +124,10 @@
 
 % ========================= Abstract =========================
 \chapter{Abstract}
-\textit{ALVION} is an Android app that spots signs of driver drowsiness and distraction using a phone’s front-facing camera and on-device machine learning. The idea is simple: many new cars include driver monitoring, but millions of older vehicles do not. Our goal is to close that gap with an accessible aftermarket option that runs entirely on Snapdragon-based smartphones, without sending any video to the cloud. Running locally keeps latency low for timely alerts, protects privacy by keeping data on the device, and showcases what modern mobile hardware can do in real-time.
-
-The system analyzes live video to track visual cues linked to fatigue and inattention, applies configurable thresholds, and triggers clear alerts through sound, screen prompts, and vibration when attention appears to drift. The design focuses on what we can build and test in a years time: reliable on-device inference, straightforward configuration, and a responsive alert pipeline. We do not attempt vehicle integration, cloud processing, large-scale deployment, or regulatory certification.
-
-This document lays out the project’s objectives, assumptions, and boundaries so developers, mentors, and faculty can stay aligned as we move from concept to implementation. It explains the system architecture, component responsibilities, and the choices behind them, aiming for a design that is practical to build now and easy for a future team to extend. In short, ALVION demonstrates that a phone you already carry can provide meaningful safety signals when designed with careful attention to latency, privacy, and usability.
+\textit{ALVION} is an Android application that detects signs of driver drowsiness and distraction using the phone’s front-facing camera and on-device computer vision. Many new vehicles include driver-monitoring features, but millions of older cars do not. Our goal is to help close that gap with a low-cost, widely accessible solution that can run on everyday Android devices and provide timely safety alerts during real driving.
+In addition to being a prototype safety application, ALVION serves as a practical testbed to evaluate the real-world capability of Qualcomm-enabled mobile AI for this use case. We focus on whether mobile vision models and on-device acceleration are strong and stable enough to support driver-monitoring signals under realistic conditions (lighting changes, head movement, brief tracking loss, and different mounting angles). These findings help inform what is feasible today on commodity smartphones and what improvements are needed for more robust edge-based driver safety systems.
+The system analyzes live video to extract visual cues related to fatigue and inattention, applies configurable thresholds and time-based logic, and triggers clear alerts through sound, on-screen prompts, and vibration when attention appears to drift. While core detection runs on-device for low latency, the application also includes standard product features such as user authentication (e.g., Firebase) to support a realistic app workflow. We do not attempt vehicle integration, cloud-based video processing, large-scale deployment, or regulatory certification.
+This document outlines the project’s objectives, assumptions, and boundaries so developers, mentors, and faculty can stay aligned as the system evolves from concept to implementation. It describes the architecture, component responsibilities, and design decisions with an emphasis on building something practical within an academic timeline and extensible for future teams.
 
 % ========================= DOC INFO =========================
 \chapter{Document Information}
@@ -197,11 +196,11 @@ ALVION’s approach uses these resources to demonstrate how Qualcomm’s mobile 
 Improving driver safety requires early detection of distraction and drowsiness in a manner that is both reliable and user-friendly. ALVION responds to several intertwined needs:
 
 \begin{itemize}
-  \item \textbf{Safety:} The system should protect both the driver and other road users by recognizing behavioral cues such as prolonged eyelid closure, yawning, or head tilting that precede dangerous inattention.
-  \item \textbf{Privacy:} Consumers are wary of surveillance systems that transmit facial data to the cloud. An entirely on-device approach ensures that personal information remains secure while still providing effective monitoring.
-  \item \textbf{Accessibility and Cost:} Full-scale automotive integrations are expensive. By relying on common smartphone hardware, ALVION provides an affordable entry point for drivers worldwide.
-  \item \textbf{Responsiveness:} Alerts must reach the driver when they matter most. Real-time analysis ensures immediate feedback that can prevent accidents instead of only documenting them.
-  \item \textbf{Reusability and Scalability:} The project serves as an open reference implementation that can be adapted, expanded, and optimized by future teams, supporting continuous improvement in mobile AI safety systems.
+    \item \textbf{Safety:} The system should protect both the driver and other road users by recognizing behavioral cues such as prolonged eyelid closure, yawning, or abnormal head pose patterns that precede dangerous inattention.
+    \item \textbf{Privacy-Aware Design:} Drivers are wary of surveillance systems that upload facial video to the cloud. ALVION is designed to keep \emph{core detection and inference on-device} and avoid transmitting raw camera footage, while still supporting standard app functionality such as user authentication (e.g., Firebase).
+    \item \textbf{Accessibility and Cost:} Full-scale automotive integrations are expensive. By leveraging common smartphone hardware, ALVION provides a low-cost entry point that can benefit drivers in older vehicles.
+    \item \textbf{Responsiveness:} Alerts must reach the driver when they matter most. Real-time analysis enables immediate feedback that can help prevent incidents instead of only documenting them.
+    \item \textbf{Reusability and Scalability:} The project serves as a reference implementation that can be adapted, expanded, and optimized by future teams, supporting continuous improvement in mobile AI safety systems and evaluation of mobile AI model capability.
 \end{itemize}
 \clearpage
 
