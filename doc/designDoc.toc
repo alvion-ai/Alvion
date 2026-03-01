@@ -16,137 +16,132 @@
 \contentsline {subsubsection}{\numberline {4.1.4.2}User Scenarios}{14}{subsubsection.4.1.4.2}%
 \contentsline {subsubsection}{\numberline {4.1.4.3}User Functional Requirements}{15}{subsubsection.4.1.4.3}%
 \contentsline {subsection}{\numberline {4.1.5}Non-Functional Requirements}{16}{subsection.4.1.5}%
-\contentsline {subsubsection}{\numberline {4.1.5.1}Product: Usability Requirements}{16}{subsubsection.4.1.5.1}%
-\contentsline {subsubsection}{\numberline {4.1.5.2}Product: Performance Requirements}{16}{subsubsection.4.1.5.2}%
-\contentsline {subsubsection}{\numberline {4.1.5.3}Product: Availability, Reliability, and Security Requirements}{17}{subsubsection.4.1.5.3}%
-\contentsline {subsubsection}{\numberline {4.1.5.4}Organizational: Development Requirements}{17}{subsubsection.4.1.5.4}%
-\contentsline {subsubsection}{\numberline {4.1.5.5}Organizational: Operational Requirements}{17}{subsubsection.4.1.5.5}%
-\contentsline {subsubsection}{\numberline {4.1.5.6}Organizational: Environmental Requirements}{17}{subsubsection.4.1.5.6}%
-\contentsline {subsubsection}{\numberline {4.1.5.7}External: Legislative Requirements on Safety and Security}{17}{subsubsection.4.1.5.7}%
-\contentsline {subsubsection}{\numberline {4.1.5.8}External: Cultural and Social Requirements}{17}{subsubsection.4.1.5.8}%
-\contentsline {subsubsection}{\numberline {4.1.5.9}External: Interoperability Requirements}{18}{subsubsection.4.1.5.9}%
-\contentsline {section}{\numberline {4.2}\textcolor {qcRed}{System Requirements}}{19}{section.4.2}%
-\contentsline {subsection}{\numberline {4.2.1}Functional Requirements}{19}{subsection.4.2.1}%
-\contentsline {subsubsection}{\numberline {4.2.1.1}System Functional Requirements}{19}{subsubsection.4.2.1.1}%
-\contentsline {subsubsection}{\numberline {4.2.1.2}Data Requirements}{19}{subsubsection.4.2.1.2}%
-\contentsline {paragraph}{Data Inputs}{19}{paragraph*.1}%
-\contentsline {paragraph}{Data Processing and Outputs}{20}{paragraph*.2}%
-\contentsline {paragraph}{Data Storage Requirements}{20}{paragraph*.3}%
-\contentsline {paragraph}{Data Relationships}{20}{paragraph*.4}%
-\contentsline {paragraph}{Data Quality and Integrity}{20}{paragraph*.5}%
-\contentsline {paragraph}{Data Privacy and Security}{20}{paragraph*.6}%
-\contentsline {subsection}{\numberline {4.2.2}Non-functional Requirements}{20}{subsection.4.2.2}%
-\contentsline {subsubsection}{\numberline {4.2.2.1}Product: Usability Requirements}{20}{subsubsection.4.2.2.1}%
-\contentsline {subsubsection}{\numberline {4.2.2.2}Product: Performance Requirements}{21}{subsubsection.4.2.2.2}%
-\contentsline {subsubsection}{\numberline {4.2.2.3}Product: Availability/Reliability/Security}{21}{subsubsection.4.2.2.3}%
-\contentsline {subsubsection}{\numberline {4.2.2.4}Organizational: Development Requirements}{21}{subsubsection.4.2.2.4}%
-\contentsline {subsubsection}{\numberline {4.2.2.5}Organizational: Operational Requirements}{21}{subsubsection.4.2.2.5}%
-\contentsline {subsubsection}{\numberline {4.2.2.6}Organizational: Environmental Requirements}{21}{subsubsection.4.2.2.6}%
-\contentsline {subsubsection}{\numberline {4.2.2.7}External: Legislative Requirements on Safety/Security}{21}{subsubsection.4.2.2.7}%
-\contentsline {subsubsection}{\numberline {4.2.2.8}External: Cultural and Social Requirements}{22}{subsubsection.4.2.2.8}%
-\contentsline {subsubsection}{\numberline {4.2.2.9}External: Interoperability Requirements}{22}{subsubsection.4.2.2.9}%
-\contentsline {chapter}{\numberline {5}Exploratory Studies}{23}{chapter.5}%
-\contentsline {section}{\numberline {5.1}Relevant Development Frameworks}{23}{section.5.1}%
-\contentsline {subsection}{\numberline {5.1.1}Android Studio (Kotlin)}{23}{subsection.5.1.1}%
-\contentsline {subsection}{\numberline {5.1.2}Front end: Jetpack Compose (native UI)}{23}{subsection.5.1.2}%
-\contentsline {subsection}{\numberline {5.1.3}Camera: CameraX (preview + frames for ML)}{23}{subsection.5.1.3}%
-\contentsline {subsection}{\numberline {5.1.4}On-device inference: TensorFlow Lite (TFLite)}{23}{subsection.5.1.4}%
-\contentsline {subsection}{\numberline {5.1.5}Vision helpers: ML Kit / MediaPipe / OpenCV}{23}{subsection.5.1.5}%
-\contentsline {subsection}{\numberline {5.1.6}Training (off-device, only if needed): PyTorch $\rightarrow $ ONNX $\rightarrow $ TFLite}{24}{subsection.5.1.6}%
-\contentsline {subsection}{\numberline {5.1.7}Project glue, performance, and stability}{24}{subsection.5.1.7}%
-\contentsline {section}{\numberline {5.2}Relevant Solution Techniques \& Dataset Strategy}{25}{section.5.2}%
-\contentsline {subsection}{\numberline {5.2.1}Tiered Runtime (device-first)}{25}{subsection.5.2.1}%
-\contentsline {paragraph}{Tier 1 (default, no training).}{25}{paragraph*.7}%
-\contentsline {paragraph}{Tier 2 (assist, only when needed).}{25}{paragraph*.8}%
-\contentsline {subsection}{\numberline {5.2.2}MobilenetV2 Baseline: Adopt $\rightarrow $ Audit $\rightarrow $ Adapt}{25}{subsection.5.2.2}%
-\contentsline {paragraph}{Adopt (establish a baseline).}{25}{paragraph*.9}%
-\contentsline {paragraph}{Audit (trust but verify).}{25}{paragraph*.10}%
-\contentsline {paragraph}{Adapt (make it phone-ready).}{26}{paragraph*.11}%
-\contentsline {subsection}{\numberline {5.2.3}Public Datasets and Roles}{26}{subsection.5.2.3}%
-\contentsline {paragraph}{Why this mix works.}{26}{paragraph*.12}%
-\contentsline {subsection}{\numberline {5.2.4}Kaggle Dataset: ``Good Enough'' Criteria}{26}{subsection.5.2.4}%
-\contentsline {subsection}{\numberline {5.2.5}Evaluation Without Overfitting}{27}{subsection.5.2.5}%
-\contentsline {subsection}{\numberline {5.2.6}What ``Success'' Looks Like}{27}{subsection.5.2.6}%
-\contentsline {section}{\numberline {5.3}Broader Impacts}{27}{section.5.3}%
-\contentsline {chapter}{\numberline {6}System Design}{29}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Architectural Design}{29}{section.6.1}%
-\contentsline {subsection}{\numberline {6.1.1}Architecture Overview}{29}{subsection.6.1.1}%
-\contentsline {section}{\numberline {6.2}Structural Design}{30}{section.6.2}%
-\contentsline {subsection}{\numberline {6.2.1}UML Class Diagram(s)}{31}{subsection.6.2.1}%
-\contentsline {paragraph}{Design patterns used.}{31}{paragraph*.13}%
-\contentsline {subsection}{\numberline {6.2.2}Entity–Relationship Diagram (ERD)}{32}{subsection.6.2.2}%
-\contentsline {section}{\numberline {6.3}User Interface Design}{33}{section.6.3}%
-\contentsline {section}{\numberline {6.4}Behavioral Design}{34}{section.6.4}%
-\contentsline {subsection}{\numberline {6.4.1}Sequence Diagram}{34}{subsection.6.4.1}%
-\contentsline {subsection}{\numberline {6.4.2}State Machine}{34}{subsection.6.4.2}%
-\contentsline {section}{\numberline {6.5}Design Alternatives \& Decision Rationale}{35}{section.6.5}%
-\contentsline {chapter}{\numberline {7}System Implementation}{37}{chapter.7}%
-\contentsline {section}{\numberline {7.1}Programming Languages \& Tools}{37}{section.7.1}%
-\contentsline {section}{\numberline {7.2}Coding Conventions}{37}{section.7.2}%
-\contentsline {section}{\numberline {7.3}Code Version Control}{37}{section.7.3}%
-\contentsline {section}{\numberline {7.4}Implementation Alternatives \& Decision Rationale}{37}{section.7.4}%
-\contentsline {section}{\numberline {7.5}Consistency of Code Implementation on Chosen Design Patterns}{38}{section.7.5}%
-\contentsline {section}{\numberline {7.6}Analysis of Key Algorithms}{38}{section.7.6}%
-\contentsline {subsection}{\numberline {7.6.1}PERCLOS Proxy via Eye Openness Windowing}{38}{subsection.7.6.1}%
-\contentsline {paragraph}{Complexity.}{38}{paragraph*.14}%
-\contentsline {subsection}{\numberline {7.6.2}Head Yaw Smoothing with Debounce}{38}{subsection.7.6.2}%
-\contentsline {paragraph}{Complexity.}{39}{paragraph*.15}%
-\contentsline {chapter}{\numberline {8}System Testing}{40}{chapter.8}%
-\contentsline {section}{\numberline {8.1}Test Automation Framework}{40}{section.8.1}%
-\contentsline {subsection}{\numberline {8.1.1}Steps for Installing the Test Framework}{40}{subsection.8.1.1}%
-\contentsline {subsection}{\numberline {8.1.2}Steps for Running Test Cases}{40}{subsection.8.1.2}%
-\contentsline {section}{\numberline {8.2}Test Case Designs}{40}{section.8.2}%
-\contentsline {section}{\numberline {8.3}Test Execution Reports}{41}{section.8.3}%
-\contentsline {subsection}{\numberline {8.3.1}Unit and Integration Testing Report}{41}{subsection.8.3.1}%
-\contentsline {subsection}{\numberline {8.3.2}System Testing Report}{41}{subsection.8.3.2}%
-\contentsline {subsection}{\numberline {8.3.3}Acceptance Testing Report}{42}{subsection.8.3.3}%
-\contentsline {section}{\numberline {8.4}Meeting Functional Requirements}{42}{section.8.4}%
-\contentsline {section}{\numberline {8.5}Meeting Non-Functional Requirements}{42}{section.8.5}%
-\contentsline {chapter}{\numberline {9}Challenges \& Open Issues}{44}{chapter.9}%
-\contentsline {section}{\numberline {9.1}Challenges Faced in Requirements Engineering}{44}{section.9.1}%
-\contentsline {subsection}{\numberline {9.1.1}Availability of Industry Mentor}{44}{subsection.9.1.1}%
-\contentsline {subsection}{\numberline {9.1.2}Understanding the Problem Domain}{44}{subsection.9.1.2}%
-\contentsline {section}{\numberline {9.2}Challenges Faced in System Development}{44}{section.9.2}%
-\contentsline {subsection}{\numberline {9.2.1}Learning New Techniques and Technologies}{44}{subsection.9.2.1}%
-\contentsline {subsection}{\numberline {9.2.2}Tool and Platform Support}{44}{subsection.9.2.2}%
-\contentsline {subsection}{\numberline {9.2.3}Applying Agile Practices}{44}{subsection.9.2.3}%
-\contentsline {section}{\numberline {9.3}Open Issues \& Ideas for Solutions}{45}{section.9.3}%
-\contentsline {subsection}{\numberline {9.3.1}Model Validation on Real Drives}{45}{subsection.9.3.1}%
-\contentsline {subsection}{\numberline {9.3.2}On-Device Performance and Thermals}{45}{subsection.9.3.2}%
-\contentsline {subsection}{\numberline {9.3.3}Low-Light Robustness}{45}{subsection.9.3.3}%
-\contentsline {subsection}{\numberline {9.3.4}Device Mount Variability}{45}{subsection.9.3.4}%
-\contentsline {subsection}{\numberline {9.3.5}Bias and Generalization}{45}{subsection.9.3.5}%
-\contentsline {subsection}{\numberline {9.3.6}Tooling and Environment Drift}{45}{subsection.9.3.6}%
-\contentsline {subsection}{\numberline {9.3.7}Process Cadence}{45}{subsection.9.3.7}%
-\contentsline {chapter}{\numberline {10}System Manuals}{46}{chapter.10}%
-\contentsline {section}{\numberline {10.1}Instructions for System Development}{46}{section.10.1}%
-\contentsline {subsection}{\numberline {10.1.1}Repository Layout}{46}{subsection.10.1.1}%
-\contentsline {subsection}{\numberline {10.1.2}Prerequisites}{46}{subsection.10.1.2}%
-\contentsline {subsection}{\numberline {10.1.3}Clone and First Build}{46}{subsection.10.1.3}%
-\contentsline {subsection}{\numberline {10.1.4}Project Configuration}{46}{subsection.10.1.4}%
-\contentsline {subsection}{\numberline {10.1.5}Run on Device}{46}{subsection.10.1.5}%
-\contentsline {subsection}{\numberline {10.1.6}Code Style and Checks}{46}{subsection.10.1.6}%
-\contentsline {subsection}{\numberline {10.1.7}Testing and Benchmarks}{47}{subsection.10.1.7}%
-\contentsline {subsection}{\numberline {10.1.8}Model Handling}{47}{subsection.10.1.8}%
-\contentsline {subsection}{\numberline {10.1.9}Branching and Versioning}{47}{subsection.10.1.9}%
-\contentsline {section}{\numberline {10.2}How to Set Up Development Environment}{47}{section.10.2}%
-\contentsline {section}{\numberline {10.3}Notes on System Further Extension}{47}{section.10.3}%
-\contentsline {section}{\numberline {10.4}Instructions for System Deployment}{47}{section.10.4}%
-\contentsline {subsection}{\numberline {10.4.1}Platform Requirements}{48}{subsection.10.4.1}%
-\contentsline {subsection}{\numberline {10.4.2}System Installation}{48}{subsection.10.4.2}%
-\contentsline {subsection}{\numberline {10.4.3}First-Run Setup}{48}{subsection.10.4.3}%
-\contentsline {section}{\numberline {10.5}Instructions for System End Users}{48}{section.10.5}%
-\contentsline {subsection}{\numberline {10.5.1}Quick Start}{48}{subsection.10.5.1}%
-\contentsline {subsection}{\numberline {10.5.2}Best Practices}{48}{subsection.10.5.2}%
-\contentsline {subsection}{\numberline {10.5.3}Understanding Alerts}{48}{subsection.10.5.3}%
-\contentsline {subsection}{\numberline {10.5.4}Privacy}{48}{subsection.10.5.4}%
-\contentsline {subsection}{\numberline {10.5.5}Support}{49}{subsection.10.5.5}%
-\contentsline {chapter}{\numberline {11}Conclusion}{50}{chapter.11}%
-\contentsline {section}{\numberline {11.1}Achievement}{50}{section.11.1}%
-\contentsline {section}{\numberline {11.2}Lessons Learned}{50}{section.11.2}%
-\contentsline {section}{\numberline {11.3}Acknowledgment}{50}{section.11.3}%
-\contentsline {chapter}{\numberline {12}References}{51}{chapter.12}%
-\contentsline {section}{Appendix R: Requirements}{51}{Item.53}%
-\contentsline {section}{Appendix U: Use Cases}{107}{Item.53}%
-\contentsline {section}{Appendix T: Test Cases}{120}{Item.53}%
-\contentsline {section}{Appendix TE: Test Execution Report}{129}{Item.53}%
+\contentsline {subsubsection}{\numberline {4.1.5.1}Product: Usability and Safety}{16}{subsubsection.4.1.5.1}%
+\contentsline {subsubsection}{\numberline {4.1.5.2}Product: Performance and Efficiency}{16}{subsubsection.4.1.5.2}%
+\contentsline {subsubsection}{\numberline {4.1.5.3}Product: Privacy and Reliability}{16}{subsubsection.4.1.5.3}%
+\contentsline {subsubsection}{\numberline {4.1.5.4}Organizational: Development and Environment}{17}{subsubsection.4.1.5.4}%
+\contentsline {section}{\numberline {4.2}\textcolor {qcRed}{System Requirements}}{17}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Functional Requirements}{17}{subsection.4.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.1.1}System Functional Requirements}{17}{subsubsection.4.2.1.1}%
+\contentsline {subsubsection}{\numberline {4.2.1.2}Data Requirements}{18}{subsubsection.4.2.1.2}%
+\contentsline {paragraph}{Data Inputs}{18}{paragraph*.1}%
+\contentsline {paragraph}{Data Processing and Outputs}{18}{paragraph*.2}%
+\contentsline {paragraph}{Data Storage Requirements}{18}{paragraph*.3}%
+\contentsline {paragraph}{Data Relationships}{18}{paragraph*.4}%
+\contentsline {paragraph}{Data Quality and Integrity}{18}{paragraph*.5}%
+\contentsline {paragraph}{Data Privacy and Security}{18}{paragraph*.6}%
+\contentsline {subsection}{\numberline {4.2.2}Non-functional Requirements}{19}{subsection.4.2.2}%
+\contentsline {subsubsection}{\numberline {4.2.2.1}Product: Usability Requirements}{19}{subsubsection.4.2.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.2.2}Product: Performance Requirements}{19}{subsubsection.4.2.2.2}%
+\contentsline {subsubsection}{\numberline {4.2.2.3}Product: Availability/Reliability/Security}{19}{subsubsection.4.2.2.3}%
+\contentsline {subsubsection}{\numberline {4.2.2.4}Organizational: Development Requirements}{19}{subsubsection.4.2.2.4}%
+\contentsline {subsubsection}{\numberline {4.2.2.5}Organizational: Operational Requirements}{19}{subsubsection.4.2.2.5}%
+\contentsline {subsubsection}{\numberline {4.2.2.6}Organizational: Environmental Requirements}{20}{subsubsection.4.2.2.6}%
+\contentsline {subsubsection}{\numberline {4.2.2.7}External: Legislative Requirements on Safety/Security}{20}{subsubsection.4.2.2.7}%
+\contentsline {subsubsection}{\numberline {4.2.2.8}External: Cultural and Social Requirements}{20}{subsubsection.4.2.2.8}%
+\contentsline {subsubsection}{\numberline {4.2.2.9}External: Interoperability Requirements}{20}{subsubsection.4.2.2.9}%
+\contentsline {chapter}{\numberline {5}Exploratory Studies}{21}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Relevant Development Frameworks}{21}{section.5.1}%
+\contentsline {subsection}{\numberline {5.1.1}Android Studio (Kotlin)}{21}{subsection.5.1.1}%
+\contentsline {subsection}{\numberline {5.1.2}Front end: Jetpack Compose (native UI)}{21}{subsection.5.1.2}%
+\contentsline {subsection}{\numberline {5.1.3}Camera: CameraX (preview + frames for ML)}{21}{subsection.5.1.3}%
+\contentsline {subsection}{\numberline {5.1.4}On-device inference: TensorFlow Lite (TFLite)}{21}{subsection.5.1.4}%
+\contentsline {subsection}{\numberline {5.1.5}Vision helpers: ML Kit / MediaPipe / OpenCV}{21}{subsection.5.1.5}%
+\contentsline {subsection}{\numberline {5.1.6}Training (off-device, only if needed): PyTorch $\rightarrow $ ONNX $\rightarrow $ TFLite}{22}{subsection.5.1.6}%
+\contentsline {subsection}{\numberline {5.1.7}Project glue, performance, and stability}{22}{subsection.5.1.7}%
+\contentsline {section}{\numberline {5.2}Relevant Solution Techniques \& Dataset Strategy}{23}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Tiered Runtime (device-first)}{23}{subsection.5.2.1}%
+\contentsline {paragraph}{Tier 1 (default, no training).}{23}{paragraph*.7}%
+\contentsline {paragraph}{Tier 2 (assist, only when needed).}{23}{paragraph*.8}%
+\contentsline {subsection}{\numberline {5.2.2}MobilenetV2 Baseline: Adopt $\rightarrow $ Audit $\rightarrow $ Adapt}{23}{subsection.5.2.2}%
+\contentsline {paragraph}{Adopt (establish a baseline).}{23}{paragraph*.9}%
+\contentsline {paragraph}{Audit (trust but verify).}{23}{paragraph*.10}%
+\contentsline {paragraph}{Adapt (make it phone-ready).}{24}{paragraph*.11}%
+\contentsline {subsection}{\numberline {5.2.3}Public Datasets and Roles}{24}{subsection.5.2.3}%
+\contentsline {paragraph}{Why this mix works.}{24}{paragraph*.12}%
+\contentsline {subsection}{\numberline {5.2.4}Kaggle Dataset: ``Good Enough'' Criteria}{24}{subsection.5.2.4}%
+\contentsline {subsection}{\numberline {5.2.5}Evaluation Without Overfitting}{25}{subsection.5.2.5}%
+\contentsline {subsection}{\numberline {5.2.6}What ``Success'' Looks Like}{25}{subsection.5.2.6}%
+\contentsline {section}{\numberline {5.3}Broader Impacts}{25}{section.5.3}%
+\contentsline {chapter}{\numberline {6}System Design}{27}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Architectural Design}{27}{section.6.1}%
+\contentsline {subsection}{\numberline {6.1.1}Architecture Overview}{27}{subsection.6.1.1}%
+\contentsline {section}{\numberline {6.2}Structural Design}{28}{section.6.2}%
+\contentsline {subsection}{\numberline {6.2.1}UML Class Diagram(s)}{29}{subsection.6.2.1}%
+\contentsline {paragraph}{Design patterns used.}{29}{paragraph*.13}%
+\contentsline {subsection}{\numberline {6.2.2}Entity–Relationship Diagram (ERD)}{30}{subsection.6.2.2}%
+\contentsline {section}{\numberline {6.3}User Interface Design}{31}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Behavioral Design}{32}{section.6.4}%
+\contentsline {subsection}{\numberline {6.4.1}Sequence Diagram}{32}{subsection.6.4.1}%
+\contentsline {subsection}{\numberline {6.4.2}State Machine}{32}{subsection.6.4.2}%
+\contentsline {section}{\numberline {6.5}Design Alternatives \& Decision Rationale}{33}{section.6.5}%
+\contentsline {chapter}{\numberline {7}System Implementation}{35}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Programming Languages \& Tools}{35}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Coding Conventions}{35}{section.7.2}%
+\contentsline {section}{\numberline {7.3}Code Version Control}{35}{section.7.3}%
+\contentsline {section}{\numberline {7.4}Implementation Alternatives \& Decision Rationale}{35}{section.7.4}%
+\contentsline {section}{\numberline {7.5}Consistency of Code Implementation on Chosen Design Patterns}{36}{section.7.5}%
+\contentsline {section}{\numberline {7.6}Analysis of Key Algorithms}{36}{section.7.6}%
+\contentsline {subsection}{\numberline {7.6.1}PERCLOS Proxy via Eye Openness Windowing}{36}{subsection.7.6.1}%
+\contentsline {paragraph}{Complexity.}{36}{paragraph*.14}%
+\contentsline {subsection}{\numberline {7.6.2}Head Yaw Smoothing with Debounce}{36}{subsection.7.6.2}%
+\contentsline {paragraph}{Complexity.}{37}{paragraph*.15}%
+\contentsline {chapter}{\numberline {8}System Testing}{38}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Test Automation Framework}{38}{section.8.1}%
+\contentsline {subsection}{\numberline {8.1.1}Steps for Installing the Test Framework}{38}{subsection.8.1.1}%
+\contentsline {subsection}{\numberline {8.1.2}Steps for Running Test Cases}{38}{subsection.8.1.2}%
+\contentsline {section}{\numberline {8.2}Test Case Designs}{38}{section.8.2}%
+\contentsline {section}{\numberline {8.3}Test Execution Reports}{39}{section.8.3}%
+\contentsline {subsection}{\numberline {8.3.1}Unit and Integration Testing Report}{39}{subsection.8.3.1}%
+\contentsline {subsection}{\numberline {8.3.2}System Testing Report}{39}{subsection.8.3.2}%
+\contentsline {subsection}{\numberline {8.3.3}Acceptance Testing Report}{40}{subsection.8.3.3}%
+\contentsline {section}{\numberline {8.4}Meeting Functional Requirements}{40}{section.8.4}%
+\contentsline {section}{\numberline {8.5}Meeting Non-Functional Requirements}{40}{section.8.5}%
+\contentsline {chapter}{\numberline {9}Challenges \& Open Issues}{42}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Challenges Faced in Requirements Engineering}{42}{section.9.1}%
+\contentsline {subsection}{\numberline {9.1.1}Availability of Industry Mentor}{42}{subsection.9.1.1}%
+\contentsline {subsection}{\numberline {9.1.2}Understanding the Problem Domain}{42}{subsection.9.1.2}%
+\contentsline {section}{\numberline {9.2}Challenges Faced in System Development}{42}{section.9.2}%
+\contentsline {subsection}{\numberline {9.2.1}Learning New Techniques and Technologies}{42}{subsection.9.2.1}%
+\contentsline {subsection}{\numberline {9.2.2}Tool and Platform Support}{42}{subsection.9.2.2}%
+\contentsline {subsection}{\numberline {9.2.3}Applying Agile Practices}{42}{subsection.9.2.3}%
+\contentsline {section}{\numberline {9.3}Open Issues \& Ideas for Solutions}{43}{section.9.3}%
+\contentsline {subsection}{\numberline {9.3.1}Model Validation on Real Drives}{43}{subsection.9.3.1}%
+\contentsline {subsection}{\numberline {9.3.2}On-Device Performance and Thermals}{43}{subsection.9.3.2}%
+\contentsline {subsection}{\numberline {9.3.3}Low-Light Robustness}{43}{subsection.9.3.3}%
+\contentsline {subsection}{\numberline {9.3.4}Device Mount Variability}{43}{subsection.9.3.4}%
+\contentsline {subsection}{\numberline {9.3.5}Bias and Generalization}{43}{subsection.9.3.5}%
+\contentsline {subsection}{\numberline {9.3.6}Tooling and Environment Drift}{43}{subsection.9.3.6}%
+\contentsline {subsection}{\numberline {9.3.7}Process Cadence}{43}{subsection.9.3.7}%
+\contentsline {chapter}{\numberline {10}System Manuals}{44}{chapter.10}%
+\contentsline {section}{\numberline {10.1}Instructions for System Development}{44}{section.10.1}%
+\contentsline {subsection}{\numberline {10.1.1}Repository Layout}{44}{subsection.10.1.1}%
+\contentsline {subsection}{\numberline {10.1.2}Prerequisites}{44}{subsection.10.1.2}%
+\contentsline {subsection}{\numberline {10.1.3}Clone and First Build}{44}{subsection.10.1.3}%
+\contentsline {subsection}{\numberline {10.1.4}Project Configuration}{44}{subsection.10.1.4}%
+\contentsline {subsection}{\numberline {10.1.5}Run on Device}{44}{subsection.10.1.5}%
+\contentsline {subsection}{\numberline {10.1.6}Code Style and Checks}{44}{subsection.10.1.6}%
+\contentsline {subsection}{\numberline {10.1.7}Testing and Benchmarks}{45}{subsection.10.1.7}%
+\contentsline {subsection}{\numberline {10.1.8}Model Handling}{45}{subsection.10.1.8}%
+\contentsline {subsection}{\numberline {10.1.9}Branching and Versioning}{45}{subsection.10.1.9}%
+\contentsline {section}{\numberline {10.2}How to Set Up Development Environment}{45}{section.10.2}%
+\contentsline {section}{\numberline {10.3}Notes on System Further Extension}{45}{section.10.3}%
+\contentsline {section}{\numberline {10.4}Instructions for System Deployment}{45}{section.10.4}%
+\contentsline {subsection}{\numberline {10.4.1}Platform Requirements}{46}{subsection.10.4.1}%
+\contentsline {subsection}{\numberline {10.4.2}System Installation}{46}{subsection.10.4.2}%
+\contentsline {subsection}{\numberline {10.4.3}First-Run Setup}{46}{subsection.10.4.3}%
+\contentsline {section}{\numberline {10.5}Instructions for System End Users}{46}{section.10.5}%
+\contentsline {subsection}{\numberline {10.5.1}Quick Start}{46}{subsection.10.5.1}%
+\contentsline {subsection}{\numberline {10.5.2}Best Practices}{46}{subsection.10.5.2}%
+\contentsline {subsection}{\numberline {10.5.3}Understanding Alerts}{46}{subsection.10.5.3}%
+\contentsline {subsection}{\numberline {10.5.4}Privacy}{46}{subsection.10.5.4}%
+\contentsline {subsection}{\numberline {10.5.5}Support}{47}{subsection.10.5.5}%
+\contentsline {chapter}{\numberline {11}Conclusion}{48}{chapter.11}%
+\contentsline {section}{\numberline {11.1}Achievement}{48}{section.11.1}%
+\contentsline {section}{\numberline {11.2}Lessons Learned}{48}{section.11.2}%
+\contentsline {section}{\numberline {11.3}Acknowledgment}{48}{section.11.3}%
+\contentsline {chapter}{\numberline {12}References}{49}{chapter.12}%
+\contentsline {section}{Appendix R: Requirements}{49}{Item.51}%
+\contentsline {section}{Appendix U: Use Cases}{105}{Item.51}%
+\contentsline {section}{Appendix T: Test Cases}{118}{Item.51}%
+\contentsline {section}{Appendix TE: Test Execution Report}{127}{Item.51}%

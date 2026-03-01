@@ -366,81 +366,37 @@ This section provides short descriptions of the user functional requirements ide
 \end{enumerate}
 
 \subsection{Non-Functional Requirements}
-This section summarizes the non-functional requirements defined for the ALVION driver drowsiness and distraction detection application.  
-Each group below corresponds to the detailed requirement tables in Appendix~R and captures essential quality, organizational, and external constraints that guide the project.
+This section outlines the quality and technical constraints of the ALVION system, ensuring that the application is not only functional but also safe, responsive, and maintainable for its primary users (Drivers) and the development team.
 
-\subsubsection{Product: Usability Requirements}
-
+\subsubsection{Product: Usability and Safety}
 \begin{itemize}
-  \item \textbf{UP-01: Simple User Interface} – The application shall provide an intuitive and minimal interface that allows users to begin monitoring with minimal interaction.
-  \item \textbf{UP-02: Hands-Free Operation} – During active monitoring, no user input shall be required; all alerts and responses shall occur automatically through audio or vibration feedback.
-  \item \textbf{UP-03: Clear Feedback and Alerts} – Visual, auditory, and haptic feedback shall be easily distinguishable and clearly convey the driver’s attention status.
-  \item \textbf{UP-04: Accessibility Support} – Interface text, color, and contrast shall follow accessibility guidelines to remain legible under varied lighting conditions.
+    \item \textbf{UP-01: Minimal Interaction} – The UI shall allow a driver to start a monitoring session with no more than two taps to ensure focus remains on vehicle preparation.
+    \item \textbf{UP-02: Passive Monitoring} – Once a session begins, the system shall operate autonomously without requiring user input.
+    \item \textbf{UP-03: Multi-Modal Alerts} – Alerts shall use a combination of audio tones, high-contrast visual overlays, and haptic vibration to ensure the driver is reached regardless of cabin noise or lighting.
+    \item \textbf{UP-04: Safety Disclaimer} – The application shall display a non-dismissible safety disclaimer upon launch to ensure the driver acknowledges the system is an assist tool, not a replacement for alertness.
 \end{itemize}
 
-\subsubsection{Product: Performance Requirements}
-
+\subsubsection{Product: Performance and Efficiency}
 \begin{itemize}
-  \item \textbf{UP-05: Frame Rate and Latency} – The system shall process at least 15~frames per second and maintain an alert latency below 200~ms.
-  \item \textbf{UP-06: On-Device Inference Efficiency} – All model inference shall execute locally on Snapdragon CPU, GPU, or NPU with average CPU utilization below 40\%.
-  \item \textbf{UP-07: Thermal and Battery Management} – The system shall reduce inference frequency if device temperature or power consumption exceeds defined limits.
+    \item \textbf{UP-05: Real-Time Inference} – The pipeline (CameraX + ML Kit) shall process at least 15 frames per second to ensure that alerts are triggered within 200~ms of a detected event.
+    \item \textbf{UP-06: Hardware Acceleration} – The system shall utilize on-device acceleration (GPU/NPU) via the Android Neural Networks API (NNAPI) to maintain CPU utilization below 40\%.
+    \item \textbf{UP-07: Battery and Thermal Stability} – The application shall be capable of monitoring for at least 60 continuous minutes without causing the device to thermal throttle or exceed standard battery discharge rates for video-intensive apps.
 \end{itemize}
 
-\subsubsection{Product: Availability, Reliability, and Security Requirements}
-
+\subsubsection{Product: Privacy and Reliability}
 \begin{itemize}
-  \item \textbf{UP-08: Operational Availability} – The application shall run continuously for up to two hours without crash or data loss.
-  \item \textbf{UP-09: Fail-Safe Behavior} – In the event of hardware or model failure, the system shall suspend monitoring and notify the user instead of issuing false alerts.
-  \item \textbf{UP-10: Data Privacy and Security} – All logs and image data shall remain on-device in app-scoped storage; no external transmission shall occur without explicit consent.
-  \item \textbf{UP-11: Permission Control} – The app shall request only essential Android permissions and respect user revocation at runtime.
+    \item \textbf{UP-08: Local Processing} – To protect driver privacy, all facial analysis and frame processing shall be performed strictly on-device. No raw video or identifiable facial images shall be uploaded to any cloud service.
+    \item \textbf{UP-09: Fail-Safe State} – If the camera or ML detector fails (e.g., due to total darkness or sensor error), the app shall immediately notify the user that monitoring is suspended.
+    \item \textbf{UP-10: Persistent Settings} – Calibration baselines and sensitivity preferences shall be stored locally and persist across application restarts.
 \end{itemize}
 
-\subsubsection{Organizational: Development Requirements}
-
+\subsubsection{Organizational: Development and Environment}
 \begin{itemize}
-  \item \textbf{UO-01: Development Environment} – The project shall be developed in Android Studio using Kotlin and tested on Snapdragon hardware to ensure compatibility.
-  \item \textbf{UO-02: Version Control} – All source code shall be managed through a Git repository with standardized branching and commit practices.
-  \item \textbf{UO-03: Coding Conventions} – Code shall follow Kotlin style guidelines and include inline documentation for maintainability.
-  \item \textbf{UO-04: Testing Coverage} – Each functional requirement shall be verified through at least one unit or integration test prior to release.
+    \item \textbf{UO-01: Modern Toolchain} – The system shall be developed using Kotlin and Jetpack Compose, targeting Android API Level 33 (Android 13) and higher.
+    \item \textbf{UO-02: Offline Core} – All detection and alerting logic shall function without network connectivity. (Note: Initial Firebase Authentication is the only feature requiring internet access).
+    \item \textbf{UO-03: Environmental Adaptability} – The system shall maintain detection accuracy in both portrait and landscape mounting orientations and under common cabin lighting variations (daytime and artificial night light).
+    \item \textbf{UO-04: Maintainability} – Source code shall follow standard Kotlin coding conventions and utilize the MVC architectural pattern to ensure modularity for future feature extensions.
 \end{itemize}
-
-\subsubsection{Organizational: Operational Requirements}
-
-\begin{itemize}
-  \item \textbf{UO-05: Deployment Compatibility} – The system shall be distributed as an Android APK targeting API Level~33 or higher and installable without root access.
-  \item \textbf{UO-06: User Support Documentation} – The project shall provide a concise user guide or in-app help section describing calibration, settings, and safety disclaimers.
-\end{itemize}
-
-\subsubsection{Organizational: Environmental Requirements}
-
-\begin{itemize}
-  \item \textbf{UO-07: Lighting Adaptability} – The app shall function accurately under daylight, artificial light, and low-light cabin conditions.
-  \item \textbf{UO-08: Device Orientation} – The application shall operate correctly when the device is mounted in either landscape or portrait orientation.
-  \item \textbf{UO-09: Offline Functionality} – All monitoring and alert functions shall operate fully without network connectivity.
-\end{itemize}
-
-\subsubsection{External: Legislative Requirements on Safety and Security}
-
-\begin{itemize}
-  \item \textbf{UE-01: Driver Safety Compliance} – The application shall include a startup safety disclaimer and disable manual interaction while the vehicle is in motion.
-  \item \textbf{UE-02: Data Protection Compliance} – The system shall comply with applicable privacy laws such as CCPA and GDPR regarding consent and data retention.
-\end{itemize}
-
-\subsubsection{External: Cultural and Social Requirements}
-
-\begin{itemize}
-  \item \textbf{UE-03: Inclusive Model Performance} – The detection model shall be evaluated for consistent accuracy across diverse skin tones, facial structures, and eyewear.
-  \item \textbf{UE-04: Language Localization} – The user interface shall default to English and be structured for easy translation into additional languages.
-\end{itemize}
-
-\subsubsection{External: Interoperability Requirements}
-
-\begin{itemize}
-  \item \textbf{UE-05: Android API Compatibility} – The application shall utilize stable Android Jetpack APIs such as CameraX, AudioManager, and Storage to ensure broad device support.
-  \item \textbf{UE-06: Hardware Acceleration Interfaces} – The application shall remain interoperable with both Qualcomm QNN and Android NNAPI runtimes for accelerated on-device inference.
-\end{itemize}
-
-\clearpage
 
 % ========================= 4. SYSTEM REQUIREMENTS =========================
 \section{\textcolor{qcRed}{System Requirements}}
