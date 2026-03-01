@@ -365,39 +365,6 @@ This section provides short descriptions of the user functional requirements ide
 
 \end{enumerate}
 
-\subsection{Non-Functional Requirements}
-This section outlines the quality and technical constraints of the ALVION system, ensuring that the application is not only functional but also safe, responsive, and maintainable for its primary users (Drivers) and the development team.
-
-\subsubsection{Product: Usability and Safety}
-\begin{itemize}
-    \item \textbf{UP-01: Minimal Interaction} – The UI shall allow a driver to start a monitoring session with no more than two taps to ensure focus remains on vehicle preparation.
-    \item \textbf{UP-02: Passive Monitoring} – Once a session begins, the system shall operate autonomously without requiring user input.
-    \item \textbf{UP-03: Multi-Modal Alerts} – Alerts shall use a combination of audio tones, high-contrast visual overlays, and haptic vibration to ensure the driver is reached regardless of cabin noise or lighting.
-    \item \textbf{UP-04: Safety Disclaimer} – The application shall display a non-dismissible safety disclaimer upon launch to ensure the driver acknowledges the system is an assist tool, not a replacement for alertness.
-\end{itemize}
-
-\subsubsection{Product: Performance and Efficiency}
-\begin{itemize}
-    \item \textbf{UP-05: Real-Time Inference} – The pipeline (CameraX + ML Kit) shall process at least 15 frames per second to ensure that alerts are triggered within 200~ms of a detected event.
-    \item \textbf{UP-06: Hardware Acceleration} – The system shall utilize on-device acceleration (GPU/NPU) via the Android Neural Networks API (NNAPI) to maintain CPU utilization below 40\%.
-    \item \textbf{UP-07: Battery and Thermal Stability} – The application shall be capable of monitoring for at least 60 continuous minutes without causing the device to thermal throttle or exceed standard battery discharge rates for video-intensive apps.
-\end{itemize}
-
-\subsubsection{Product: Privacy and Reliability}
-\begin{itemize}
-    \item \textbf{UP-08: Local Processing} – To protect driver privacy, all facial analysis and frame processing shall be performed strictly on-device. No raw video or identifiable facial images shall be uploaded to any cloud service.
-    \item \textbf{UP-09: Fail-Safe State} – If the camera or ML detector fails (e.g., due to total darkness or sensor error), the app shall immediately notify the user that monitoring is suspended.
-    \item \textbf{UP-10: Persistent Settings} – Calibration baselines and sensitivity preferences shall be stored locally and persist across application restarts.
-\end{itemize}
-
-\subsubsection{Organizational: Development and Environment}
-\begin{itemize}
-    \item \textbf{UO-01: Modern Toolchain} – The system shall be developed using Kotlin and Jetpack Compose, targeting Android API Level 33 (Android 13) and higher.
-    \item \textbf{UO-02: Offline Core} – All detection and alerting logic shall function without network connectivity. (Note: Initial Firebase Authentication is the only feature requiring internet access).
-    \item \textbf{UO-03: Environmental Adaptability} – The system shall maintain detection accuracy in both portrait and landscape mounting orientations and under common cabin lighting variations (daytime and artificial night light).
-    \item \textbf{UO-04: Maintainability} – Source code shall follow standard Kotlin coding conventions and utilize the MVC architectural pattern to ensure modularity for future feature extensions.
-\end{itemize}
-
 % ========================= 4. SYSTEM REQUIREMENTS =========================
 \section{\textcolor{qcRed}{System Requirements}}
 
@@ -467,79 +434,39 @@ The ALVION application manages data related to user identity, real-time facial a
 
 \textit{These requirements confirm that while user identity is managed in the cloud, the privacy-sensitive "safety" data remains volatile and local to the driver's device.}
 
-
 % ---------- 4.2.2 Non-functional Requirements ----------
 \subsection{Non-functional Requirements}
+This section defines the technical constraints and quality standards the ALVION system must meet. These requirements serve as the benchmarks for system testing and performance evaluation.
 
-% 4.2.3.1 Product: Usability Requirements
-\subsubsection{Product: Usability Requirements}
+\subsubsection{Product: Usability and Safety}
 \begin{itemize}
-  \item \textbf{SP-01-01} — The application shall provide a simple, intuitive interface that allows users to start monitoring with minimal setup.
-  \item \textbf{SP-02-01} — The system shall require no manual input during active monitoring, ensuring fully hands-free operation.
-  \item \textbf{SP-03-01} — Alerts shall be clearly distinguishable through visual, auditory, or haptic feedback, synchronized within $\pm$50\,ms.
-  \item \textbf{SP-04-01} — The interface shall maintain readability and accessibility under different lighting conditions and conform to WCAG~2.1~AA.
+    \item \textbf{SP-01-01} — The interface shall allow a driver to initiate monitoring in under two taps to ensure minimal distraction during vehicle setup.
+    \item \textbf{SP-02-01} — The system shall maintain hands-free operation; no manual input shall be required or accepted while a monitoring session is active.
+    \item \textbf{SP-03-01} — Visual, auditory, and haptic alerts shall be synchronized within $\pm$50\,ms to provide a clear, unified warning to the driver.
+    \item \textbf{SP-04-01} — The application shall display a safety disclaimer upon launch that must be acknowledged before the driver can access monitoring features.
 \end{itemize}
 
-% 4.2.3.2 Product: Performance Requirements
-\subsubsection{Product: Performance Requirements}
+\subsubsection{Product: Performance and Efficiency}
 \begin{itemize}
-  \item \textbf{SP-05-01} — The system shall process at least 15 frames per second and issue alerts within 200\,ms of detection.
-  \item \textbf{SP-05-02} — Average CPU utilization during active monitoring shall remain below 40\%, and the application shall adapt processing rates to manage battery and thermal constraints.
+    \item \textbf{SP-05-01} — The inference pipeline shall maintain a minimum of 15 FPS and an alert latency of $\leq$200\,ms on supported Snapdragon devices.
+    \item \textbf{SP-05-02} — Average CPU utilization shall remain below 40\% by utilizing the Android Neural Networks API (NNAPI) for ML Kit hardware acceleration.
+    \item \textbf{SP-07-01} — The system shall include thermal management logic that reduces inference frequency if the device temperature exceeds safe operating limits.
 \end{itemize}
 
-% 4.2.3.3 Product: Availability/Reliability/Security
-\subsubsection{Product: Availability/Reliability/Security}
+\subsubsection{Product: Reliability and Privacy}
 \begin{itemize}
-  \item \textbf{SP-08-01} — The application shall remain operational for up to two hours without crash or data loss.
-  \item \textbf{SP-09-01} — If the camera or ML inference fails, the system shall pause monitoring and notify the user.
-  \item \textbf{SP-10-01} — All logs and configuration files shall be stored in secure app-scoped encrypted storage and deletable on request.
-  \item \textbf{SP-11-01} — The application shall respect Android runtime permission revocations and immediately disable affected capabilities.
+    \item \textbf{SP-08-01} — The application shall remain operational for at least 60 minutes of continuous monitoring without crash or significant performance degradation.
+    \item \textbf{SP-09-01} — In the event of a camera obstruction or ML failure, the system shall provide a "Tracking Lost" notification within 1 second.
+    \item \textbf{SP-10-01} — All facial analysis shall be performed locally. No raw images or video data shall be transmitted externally or stored permanently.
 \end{itemize}
 
-% 4.2.3.4 Organizational: Development Requirements
-\subsubsection{Organizational: Development Requirements}
+\subsubsection{Organizational and External Constraints}
 \begin{itemize}
-  \item \textbf{SO-01-01} — The project shall be implemented using Android Studio (Kotlin) with Git version control.
-  \item \textbf{SO-04-01} — Continuous-integration builds shall enforce unit-test coverage $\ge$\,80\%.
+    \item \textbf{SO-01-01} — The project shall be implemented using Kotlin and Jetpack Compose, targeting Android SDK 33 (Android 13) or higher.
+    \item \textbf{SO-09-01} — Core detection and alerting features must function without an active internet connection (strictly offline monitoring).
+    \item \textbf{SE-01-01} — The application shall comply with mobile safety standards by disabling configuration menus while the vehicle is detected to be in motion.
+    \item \textbf{SE-03-01} — The system shall be validated for consistent landmark detection across varied skin tones and common eyewear (glasses).
 \end{itemize}
-
-% 4.2.3.5 Organizational: Operational Requirements
-\subsubsection{Organizational: Operational Requirements}
-\begin{itemize}
-  \item \textbf{SO-05-01} — The system shall be distributed as an APK targeting Android API Level~33 or higher.
-  \item \textbf{(from UO-06)} — The application shall include an in-app guide explaining setup, calibration, and safety disclaimers.
-\end{itemize}
-
-% 4.2.3.6 Organizational: Environmental Requirements
-\subsubsection{Organizational: Environmental Requirements}
-\begin{itemize}
-  \item \textbf{SO-07-01/02} — The system shall function reliably under daylight, artificial, and low-light conditions.
-  \item \textbf{SO-08-01} — The application shall operate correctly in both portrait and landscape orientations.
-  \item \textbf{SO-09-01} — All detection and alerting functionality shall remain available without network access.
-\end{itemize}
-
-% 4.2.3.7 External: Legislative Requirements on Safety/Security
-\subsubsection{External: Legislative Requirements on Safety/Security}
-\begin{itemize}
-  \item \textbf{SE-01-01} — The application shall display a startup safety disclaimer and disable interactive prompts while the vehicle is moving.
-  \item \textbf{(from UE-02)} — Stored data shall comply with GDPR/CCPA consent, deletion, and retention rules.
-\end{itemize}
-
-% 4.2.3.8 External: Cultural and Social Requirements
-\subsubsection{External: Cultural and Social Requirements}
-\begin{itemize}
-  \item \textbf{SE-03-01} — The detection model shall be validated for consistent performance across diverse skin tones, facial features, and eyewear.
-  \item \textbf{SE-04-01} — The user interface shall default to English and be structured for easy localization.
-\end{itemize}
-
-% 4.2.3.9 External: Interoperability Requirements
-\subsubsection{External: Interoperability Requirements}
-\begin{itemize}
-  \item \textbf{SE-05-01} — The system shall use stable Android Jetpack APIs such as CameraX, AudioManager, and Storage for broad compatibility.
-  \item \textbf{SE-06-01} — The ML inference pipeline shall interoperate with both Qualcomm QNN and Android NNAPI runtimes for accelerated on-device inference.
-\end{itemize}
-
-
 
 % ========================= 5. EXPLORATORY STUDIES =========================
 \chapter{Exploratory Studies}\label{ch:exploratory-studies}
