@@ -5,6 +5,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage[english]{babel}
 \usepackage{amsmath,amssymb}
+\usepackage{longtable}
 
 % ---------- Graphics & Colors ----------
 \usepackage{graphicx}
@@ -133,26 +134,53 @@ This document lays out the project’s objectives, assumptions, and boundaries s
 \chapter{Document Information}
 
 \section{Report Revision History}
-\begin{table}[h]
-\centering
-\begin{tabular}{|p{2cm}|p{3cm}|p{7.8cm}|p{3cm}|}
-\hline
-\textbf{Version} & \textbf{Date} & \textbf{Description} & \textbf{Author} \\
-\hline
-1.0 & \multicolumn{1}{c|}{Oct 13, 2025} & Initial draft submitted. Report outline aligned to capstone guideline; 200–300 word abstract finalized; Introduction completed (Purpose, Background, Scope, Intended Audience, Project Description). Scope and constraints defined for on-device Snapdragon prototype. Document metasetup added (revision history and approval tables). & Team 9\\
-\hline
-1.5 & \multicolumn{1}{c|}{Oct 31, 2025} & Revised structural and behavioral design placeholders per faculty feedback; added preliminary UML comments, ERD rationale, and UI mockups for Version~2.0 preparation. Corrected terminology in diagrams, added reviewer annotations, and aligned architecture descriptions with grading criteria. Updated formatting, captions, and figure explanations for clarity and consistency. & Team 9\\
-\hline
-2.0 & \multicolumn{1}{c|}{Dec 1, 2025} & Completed full capstone design document. Expanded all Requirements; finalized Architecture, Structural, and Behavioral Designs (MVC diagram, class diagrams, ERD, sequence and state diagrams); added UI mockups; completed Exploratory Studies, System Implementation, and System Testing sections including test framework setup and test-case definitions. Prepared new appendices (Appendix~T, Appendix~TE) for formal test cases. & Team 9\\
-\hline
-2.5 & \multicolumn{1}{c|}{Dec 8, 2025} & Addressed instructor comments on context/scope diagrams, user–use-case cross-references, non-functional requirement grouping, and algorithm complexity; polished figures and layout. & Team 9 \\
-\hline
-\end{tabular}
-\end{table}
+
+\renewcommand{\arraystretch}{1.15}
+\setlength{\tabcolsep}{6pt}
+
+\begin{longtable}{|p{2cm}|p{3cm}|p{7.8cm}|p{3cm}|}
+    \hline
+    \textbf{Version} & \textbf{Date} & \textbf{Description} & \textbf{Author} \\
+    \hline
+    \endfirsthead
+
+    \hline
+    \textbf{Version} & \textbf{Date} & \textbf{Description} & \textbf{Author} \\
+    \hline
+    \endhead
+
+    \hline
+    \endfoot
+
+    \hline
+    \endlastfoot
+
+    1.0 & Oct 13, 2025 &
+    Initial draft submitted. Report outline aligned to capstone guidelines; 200--300 word abstract finalized; Introduction completed (Purpose, Background, Scope, Intended Audience, Project Description). Scope and constraints defined for on-device Snapdragon prototype. Document meta-setup added (revision history and approval tables). &
+    Team 9 \\
+    \hline
+
+    1.5 & Oct 31, 2025 &
+    Revised structural and behavioral design placeholders per faculty feedback; added preliminary UML comments, ERD rationale, and UI mockups for Version~2.0 preparation. Corrected terminology in diagrams, added reviewer annotations, and aligned architecture descriptions with grading criteria. Updated formatting, captions, and figure explanations for clarity and consistency. &
+    Team 9 \\
+    \hline
+
+    2.0 & Dec 1, 2025 &
+    Completed full capstone design document. Expanded all Requirements; finalized Architecture, Structural, and Behavioral Designs (MVC diagram, class diagrams, ERD, sequence and state diagrams); added UI mockups; completed Exploratory Studies, System Implementation, and System Testing sections including test framework setup and test-case definitions. Prepared new appendices (Appendix~T, Appendix~TE) for formal test cases. &
+    Team 9 \\
+    \hline
+
+    2.5 & Dec 8, 2025 &
+    Addressed instructor comments on context/scope diagrams, user--use-case cross-references, non-functional requirement grouping, and algorithm complexity; polished figures and layout. &
+    Team 9 \\
+    \hline
+
+    3.0 & Feb 28, 2026 &
+    Revised report to reflect updated user requirements and system development changes; confirmed system designs documented in Section~6 and added/updated most test case designs and execution reports in Section~8; revised Sections~1--5, 7, 9, and all appendices to align with the latest agile iteration; incorporated changed/new user requirements into refined system requirements and updated system design. &
+    Team 9 \\
+\end{longtable}
 
 \clearpage
-
-
 
 % ========================= 3. PROBLEM & CONTEXT =========================
 \chapter{Problem Statement}
