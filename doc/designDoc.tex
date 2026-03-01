@@ -329,46 +329,39 @@ The following scenarios describe how end users interact with the ALVION mobile a
 \end{itemize}
 
 \subsubsection{User Functional Requirements}
-This section provides short descriptions of the user functional requirements identified for the ALVION mobile application.  
-Each requirement corresponds to the detailed tables presented in Appendix~R and defines a specific capability the system shall provide to meet user and stakeholder goals.
+This section provides short descriptions of the user functional requirements identified for the ALVION mobile application. Each requirement defines a specific capability the system provides to meet the goals of the drivers and the technical needs of the development team.
 
 \begin{enumerate}
 
-  \item \textbf{UF-A: Account Management} —  
-  The system shall allow a driver to create an account and securely log in to view personal driving history or session data. (Planned for future use case; no dedicated use case table yet in Appendix~U.)
+    \item \textbf{UF-A: Account Management} —
+    The system shall allow drivers to create an account and securely log in using Firebase Authentication to manage personal session history and preferences.
 
-  \item \textbf{UF-B: Drowsiness Detection and Alerting} —  
-  The system shall continuously analyze eye openness using the PERCLOS metric and issue a warning when sustained eyelid closure indicates drowsiness. (Supported by Use Cases UC-001 and UC-002; see Tables~4.2–4.3 in Appendix~U.)
-  
-  \item \textbf{UF-C: Distraction Detection and Alerting} —  
-  The system shall detect when the driver’s head or gaze deviates from the forward direction for longer than a defined interval and trigger an attention-restoring alert. (Supported by Use Case UC-010; see Table~4.11 in Appendix~U.)
+    \item \textbf{UF-B: Drowsiness Detection and Alerting} —
+    The system shall continuously analyze eye openness using the PERCLOS metric and issue a warning when sustained eyelid closure (exceeding a defined millisecond threshold) indicates drowsiness. (Supported by Use Cases UC-001 and UC-002.)
 
-  \item \textbf{UF-D: Configurable Sensitivity and Alert Settings} —  
-  The system shall provide a settings interface that allows the driver to adjust detection sensitivity, alert volume, and cooldown timing. (Supported by Use Case UC-004; see Table~4.5 in Appendix~U.)
+    \item \textbf{UF-C: Distraction Detection and Alerting} —
+    The system shall detect when the driver’s head yaw deviates from the calibrated forward baseline for longer than a defined interval and trigger an attention-restoring alert. (Supported by Use Case UC-010.)
 
-  \item \textbf{UF-E: Start and Stop Monitoring Session} —  
-  The driver shall be able to manually start and end a monitoring session, activating or releasing the camera and inference modules as needed. (Supported by Use Case UC-001; see Table~4.2 in Appendix~U.)
+    \item \textbf{UF-D: Configurable Sensitivity and Alert Settings} —
+    The system shall provide a settings interface that allows the driver to adjust detection sensitivity, alert volume, and the "cooldown" period between consecutive alerts. (Supported by Use Case UC-004.)
 
-  \item \textbf{UF-F: Real-Time Alert Delivery} —  
-  The system shall deliver real-time visual, audio, or vibration alerts when drowsiness or distraction is detected so that the driver can immediately respond. (Supported by Use Cases UC-002 and UC-010; see Tables~4.3 and~4.11 in Appendix~U.)
+    \item \textbf{UF-E: Start and Stop Monitoring Session} —
+    The driver shall be able to manually start and end a monitoring session, which handles the lifecycle of the CameraX stream and the ML Kit inference pipeline. (Supported by Use Case UC-001.)
 
-  \item \textbf{UF-G: Acknowledge or Snooze Alerts} —  
-  The system shall provide options for the driver to acknowledge or temporarily snooze alerts, reducing repeated notifications during recovery periods. (Supported by Use Case UC-003; see Table~4.4 in Appendix~U.)
+    \item \textbf{UF-F: Real-Time Alert Delivery} —
+    The system shall deliver immediate visual, audio, and haptic (vibration) feedback when drowsiness or distraction is detected to ensure driver response. (Supported by Use Cases UC-002 and UC-010.)
 
-  \item \textbf{UF-H: Camera Calibration and Alignment} —  
-  The system shall provide a calibration routine to ensure the driver’s face is properly framed and visible before or during monitoring to improve detection accuracy. (Supported by Use Case UC-005; see Table~4.6 in Appendix~U.)
+    \item \textbf{UF-G: Acknowledge or Snooze Alerts} —
+    The system shall allow the driver to acknowledge an active alert or temporarily snooze notifications during short recovery periods. (Supported by Use Case UC-003.)
 
-  \item \textbf{UF-I: Session Summary and Export (Optional)} —  
-  The system shall display a local summary of each session’s alerts and optionally export anonymized logs for driver review or research use. (Supported by Use Cases UC-006 and UC-007; see Tables~4.7–4.8 in Appendix~U.)
+    \item \textbf{UF-H: Multi-Stage Camera Calibration} —
+    The system shall provide a calibration routine to establish the driver's forward-facing baseline. This includes "Mirror Logic" to infer eye-closure thresholds for side-mirrors based on partial calibration data. (Supported by Use Case UC-005.)
 
-  \item \textbf{UF-J: Privacy and Local Data Control} —  
-  The system shall store all captured data locally on the device and prevent external transmission unless the user explicitly consents. (Emphasized in Use Cases UC-001, UC-006, and UC-007; see Tables~4.2, 4.7, and~4.8 in Appendix~U.)
+    \item \textbf{UF-I: Session Summary and Export} —
+    The system shall display a post-session summary of alert counts and durations, and allow the driver to export anonymized event logs. (Supported by Use Cases UC-006 and UC-007.)
 
-  \item \textbf{UF-K: Administrative Deployment and Configuration} —  
-  Authorized system administrators shall be able to deploy application updates and manage configuration policies through Android enterprise tools. (Supported by Use Case UC-008; see Table~4.9 in Appendix~U.)
-
-  \item \textbf{UF-L: Aggregated Fleet Reporting} —  
-  In future releases, the system may provide a fleet-manager dashboard that aggregates driver alert statistics to support organizational safety analysis. (Supported by Use Case UC-009; see Table~4.10 in Appendix~U.)
+    \item \textbf{UF-J: Privacy and Local Data Control} —
+    The system shall process all camera frames locally. No raw video or identifiable facial images shall be transmitted externally; only anonymized metrics may be stored or exported. (Emphasized in Use Cases UC-001 and UC-006.)
 
 \end{enumerate}
 
