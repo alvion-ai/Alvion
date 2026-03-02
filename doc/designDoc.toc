@@ -84,48 +84,35 @@
 \contentsline {chapter}{\numberline {9}Challenges \& Open Issues}{40}{chapter.9}%
 \contentsline {section}{\numberline {9.1}Challenges Faced in Requirements Engineering}{40}{section.9.1}%
 \contentsline {subsection}{\numberline {9.1.1}Availability of Industry Mentor}{40}{subsection.9.1.1}%
-\contentsline {subsection}{\numberline {9.1.2}Understanding the Problem Domain}{40}{subsection.9.1.2}%
+\contentsline {subsection}{\numberline {9.1.2}Defining Geometric "Distraction"}{40}{subsection.9.1.2}%
 \contentsline {section}{\numberline {9.2}Challenges Faced in System Development}{40}{section.9.2}%
-\contentsline {subsection}{\numberline {9.2.1}Learning New Techniques and Technologies}{40}{subsection.9.2.1}%
-\contentsline {subsection}{\numberline {9.2.2}Tool and Platform Support}{40}{subsection.9.2.2}%
-\contentsline {subsection}{\numberline {9.2.3}Applying Agile Practices}{40}{subsection.9.2.3}%
+\contentsline {subsection}{\numberline {9.2.1}Recalibration State Pollution}{40}{subsection.9.2.1}%
+\contentsline {subsection}{\numberline {9.2.2}Geometric Detection Gaps (The "Looking Up" Issue)}{40}{subsection.9.2.2}%
 \contentsline {section}{\numberline {9.3}Open Issues \& Ideas for Solutions}{41}{section.9.3}%
-\contentsline {subsection}{\numberline {9.3.1}Model Validation on Real Drives}{41}{subsection.9.3.1}%
-\contentsline {subsection}{\numberline {9.3.2}On-Device Performance and Thermals}{41}{subsection.9.3.2}%
-\contentsline {subsection}{\numberline {9.3.3}Low-Light Robustness}{41}{subsection.9.3.3}%
-\contentsline {subsection}{\numberline {9.3.4}Device Mount Variability}{41}{subsection.9.3.4}%
-\contentsline {subsection}{\numberline {9.3.5}Bias and Generalization}{41}{subsection.9.3.5}%
-\contentsline {subsection}{\numberline {9.3.6}Tooling and Environment Drift}{41}{subsection.9.3.6}%
-\contentsline {subsection}{\numberline {9.3.7}Process Cadence}{41}{subsection.9.3.7}%
+\contentsline {subsection}{\numberline {9.3.1}Calibration Consistency and Data Resets}{41}{subsection.9.3.1}%
+\contentsline {subsection}{\numberline {9.3.2}Developer Debug Mode and Threshold Output}{41}{subsection.9.3.2}%
+\contentsline {subsection}{\numberline {9.3.3}Cloud-based Alert Persistence (Firebase)}{41}{subsection.9.3.3}%
+\contentsline {subsection}{\numberline {9.3.4}Cognitive Checks for Vision Failure}{41}{subsection.9.3.4}%
+\contentsline {subsection}{\numberline {9.3.5}Process Cadence and Pull Request Review}{41}{subsection.9.3.5}%
 \contentsline {chapter}{\numberline {10}System Manuals}{42}{chapter.10}%
 \contentsline {section}{\numberline {10.1}Instructions for System Development}{42}{section.10.1}%
 \contentsline {subsection}{\numberline {10.1.1}Repository Layout}{42}{subsection.10.1.1}%
 \contentsline {subsection}{\numberline {10.1.2}Prerequisites}{42}{subsection.10.1.2}%
 \contentsline {subsection}{\numberline {10.1.3}Clone and First Build}{42}{subsection.10.1.3}%
-\contentsline {subsection}{\numberline {10.1.4}Project Configuration}{42}{subsection.10.1.4}%
-\contentsline {subsection}{\numberline {10.1.5}Run on Device}{42}{subsection.10.1.5}%
-\contentsline {subsection}{\numberline {10.1.6}Code Style and Checks}{42}{subsection.10.1.6}%
-\contentsline {subsection}{\numberline {10.1.7}Testing and Benchmarks}{43}{subsection.10.1.7}%
-\contentsline {subsection}{\numberline {10.1.8}Model Handling}{43}{subsection.10.1.8}%
-\contentsline {subsection}{\numberline {10.1.9}Branching and Versioning}{43}{subsection.10.1.9}%
+\contentsline {subsection}{\numberline {10.1.4}CI/CD and Quality Gates}{42}{subsection.10.1.4}%
 \contentsline {section}{\numberline {10.2}How to Set Up Development Environment}{43}{section.10.2}%
 \contentsline {section}{\numberline {10.3}Notes on System Further Extension}{43}{section.10.3}%
 \contentsline {section}{\numberline {10.4}Instructions for System Deployment}{43}{section.10.4}%
-\contentsline {subsection}{\numberline {10.4.1}Platform Requirements}{44}{subsection.10.4.1}%
-\contentsline {subsection}{\numberline {10.4.2}System Installation}{44}{subsection.10.4.2}%
-\contentsline {subsection}{\numberline {10.4.3}First-Run Setup}{44}{subsection.10.4.3}%
-\contentsline {section}{\numberline {10.5}Instructions for System End Users}{44}{section.10.5}%
-\contentsline {subsection}{\numberline {10.5.1}Quick Start}{44}{subsection.10.5.1}%
-\contentsline {subsection}{\numberline {10.5.2}Best Practices}{44}{subsection.10.5.2}%
-\contentsline {subsection}{\numberline {10.5.3}Understanding Alerts}{44}{subsection.10.5.3}%
-\contentsline {subsection}{\numberline {10.5.4}Privacy}{44}{subsection.10.5.4}%
-\contentsline {subsection}{\numberline {10.5.5}Support}{45}{subsection.10.5.5}%
-\contentsline {chapter}{\numberline {11}Conclusion}{46}{chapter.11}%
-\contentsline {section}{\numberline {11.1}Achievement}{46}{section.11.1}%
-\contentsline {section}{\numberline {11.2}Lessons Learned}{46}{section.11.2}%
-\contentsline {section}{\numberline {11.3}Acknowledgment}{46}{section.11.3}%
-\contentsline {chapter}{\numberline {12}References}{47}{chapter.12}%
-\contentsline {section}{Appendix R: Requirements}{47}{Item.47}%
-\contentsline {section}{Appendix U: Use Cases}{103}{Item.47}%
-\contentsline {section}{Appendix T: Test Cases}{116}{Item.47}%
-\contentsline {section}{Appendix TE: Test Execution Report}{125}{Item.47}%
+\contentsline {subsection}{\numberline {10.4.1}System Installation}{43}{subsection.10.4.1}%
+\contentsline {section}{\numberline {10.5}Instructions for System End Users}{43}{section.10.5}%
+\contentsline {subsection}{\numberline {10.5.1}Quick Start}{43}{subsection.10.5.1}%
+\contentsline {subsection}{\numberline {10.5.2}Privacy}{43}{subsection.10.5.2}%
+\contentsline {chapter}{\numberline {11}Conclusion}{44}{chapter.11}%
+\contentsline {section}{\numberline {11.1}Achievement}{44}{section.11.1}%
+\contentsline {section}{\numberline {11.2}Lessons Learned}{44}{section.11.2}%
+\contentsline {section}{\numberline {11.3}Acknowledgment}{44}{section.11.3}%
+\contentsline {chapter}{\numberline {12}References}{45}{chapter.12}%
+\contentsline {section}{Appendix R: Requirements}{45}{Item.39}%
+\contentsline {section}{Appendix U: Use Cases}{101}{Item.39}%
+\contentsline {section}{Appendix T: Test Cases}{114}{Item.39}%
+\contentsline {section}{Appendix TE: Test Execution Report}{123}{Item.39}%

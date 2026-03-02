@@ -982,7 +982,6 @@ The integration of \textbf{GitHub Actions} and \textbf{JUnit} ensures that all f
 
 \clearpage
 
-
 % ========================= 9. CHALLENGES \& OPEN ISSUES =========================
 \chapter{Challenges \& Open Issues}
 
@@ -1060,256 +1059,130 @@ While horizontal distraction (yaw) is well-handled, the system currently fails t
 \section{Instructions for System Development}
 
 \subsection{Repository Layout}
+The ALVION project is organized as a modern Android Gradle project with a focus on modular feature development:
 \begin{itemize}
-  \item \texttt{app/}: Android client (Kotlin) with camera pipeline, inference wrapper, and alert UI
-  \item \texttt{ml/}: model artifacts, conversion scripts, and benchmark notes
-  \item \texttt{docs/}: design notes, test plans, and user manual assets
-  \item \texttt{tools/}: helper scripts for linting, formatting, and CI checks
+    \item \texttt{app/}: The primary Android application module (Kotlin).
+    \begin{itemize}
+        \item \texttt{src/main/java/.../core/}: Shared UI themes and core components.
+        \item \texttt{src/main/java/.../feature/}: Feature-specific code (Auth, Home, Profile, Intro).
+        \item \texttt{src/test/java/}: Unit tests for safety logic (e.g., \texttt{FaceLogicTest.kt}).
+    \end{itemize}
+    \item \texttt{doc/}: Technical documentation, design assets, and LaTeX source files.
+    \item \texttt{.github/workflows/}: CI/CD configuration via \texttt{ALVION-CI.yml}.
+    \item \texttt{gradle/}: Contains the Gradle wrapper and \texttt{libs.versions.toml} for dependency management.
 \end{itemize}
 
 \subsection{Prerequisites}
+To contribute to ALVION development, the following environment is required:
 \begin{itemize}
-  \item Android Studio Koala or newer with Android SDK 34 and build tools 34.x
-  \item JDK 17
-  \item A Snapdragon based Android phone running Android 13 or newer
-  \item Optional: Qualcomm AI tooling or AI Hub account if available on campus hardware
-  \item Python 3.10 for model conversion scripts and simple benchmarks
+    \item \textbf{IDE:} Android Studio Koala (2024.1.1) or newer.
+    \item \textbf{JDK:} Java Development Kit 17.
+    \item \textbf{SDK:} Android SDK 35 (Target) and 24 (Minimum).
+    \item \textbf{Hardware:} A physical Android device with a front-facing camera (Android 13+ recommended for optimal NNAPI performance).
+    \item \textbf{Firebase:} Access to the \texttt{alvion-ai} project console to obtain the \texttt{google-services.json} file.
 \end{itemize}
 
 \subsection{Clone and First Build}
 \begin{verbatim}
-git clone <repo-url>
-cd alvion
+git clone https://github.com/alvion-ai/Alvion.git
+cd Alvion
+# Ensure google-services.json is placed in app/
 ./gradlew clean assembleDebug
 \end{verbatim}
 
-\subsection{Project Configuration}
+\subsection{CI/CD and Quality Gates}
+Development follows a strict PR-based workflow enforced by the \texttt{ALVION-CI} pipeline:
 \begin{itemize}
-  \item Open \texttt{local.properties} and ensure \texttt{sdk.dir} points to the Android SDK.
-  \item In Android Studio, select the \texttt{app} configuration and the physical device.
-  \item Enable developer options and USB debugging on the phone.
-\end{itemize}
-
-\subsection{Run on Device}
-\begin{itemize}
-  \item Grant camera, audio, and vibration permissions when prompted.
-  \item From Android Studio, click Run to deploy \texttt{debug} build.
-  \item Verify live preview in the app and that alerts can play on demand using the test screen.
-\end{itemize}
-
-\subsection{Code Style and Checks}
-\begin{itemize}
-  \item Kotlin style via KTLint; run \texttt{./gradlew ktlintCheck}.
-  \item Static analysis via Android Lint; run \texttt{./gradlew lint}.
-  \item Unit tests via \texttt{./gradlew testDebugUnitTest}.
-\end{itemize}
-
-\subsection{Testing and Benchmarks}
-\begin{itemize}
-  \item Instrumented tests: \texttt{./gradlew connectedDebugAndroidTest}.
-  \item Performance log: enable Developer Mode in app settings to see FPS and median alert latency.
-  \item Battery and thermals: run three 20 minute drives and capture logs from \texttt{Logcat} with the \texttt{ALVION} tag.
-\end{itemize}
-
-\subsection{Model Handling}
-\begin{itemize}
-  \item Place the TFLite file in \texttt{app/src/main/ml/}.
-  \item Use the conversion script in \texttt{ml/convert.py} to create int8 or float16 variants.
-  \item Update model metadata in \texttt{app/src/main/assets/model.json}.
-\end{itemize}
-
-\subsection{Branching and Versioning}
-\begin{itemize}
-  \item Main branch stays releasable.
-  \item Feature branches follow \texttt{feat/*} naming, bug fixes follow \texttt{fix/*}.
-  \item Tag releases as \texttt{vX.Y} and update the revision history table.
+    \item \textbf{Static Analysis:} Run \texttt{./gradlew ktlintCheck} and \texttt{./gradlew lintDebug} to verify code style and Android best practices.
+    \item \textbf{Logic Verification:} Run \texttt{./gradlew testDebugUnitTest} to execute the \texttt{FaceLogicTest} suite.
+    \item \textbf{Pull Requests:} All merges to \texttt{main} require a passing CI build and a successful Copilot/peer review.
 \end{itemize}
 
 % ---------- 10.2 How to Set Up Development Environment ----------
 \section{How to Set Up Development Environment}
 \begin{enumerate}
-  \item Install Android Studio and SDK 34. Add Google USB driver on Windows if needed.
-  \item Install JDK 17 and set \texttt{JAVA\_HOME}.
-  \item Enable developer mode on the phone and allow USB debugging.
-  \item Clone the repository and open the project in Android Studio.
-  \item Sync Gradle. If dependencies fail, click “Try Again” and check proxy settings on campus Wi-Fi.
-  \item Connect the device and run the \texttt{debug} build. Approve all permission prompts.
+    \item Install Android Studio Koala+ and configure SDK 35.
+    \item Clone the repository from \texttt{https://github.com/alvion-ai/Alvion.git}.
+    \item In Android Studio, go to \texttt{File -> Project Structure} and ensure JDK 17 is selected.
+    \item Enable the "Developer Debug" mode in the app settings to print real-time \texttt{eyeScoreEma} and \texttt{yawDelta} values to Logcat for threshold debugging.
 \end{enumerate}
 
 % ---------- 10.3 Notes on System Further Extension ----------
 \section{Notes on System Further Extension}
+The following areas are identified for immediate further development to improve system robustness:
 \begin{itemize}
-  \item \textbf{Low light support}: add a model tuned for night driving and a simple brightness check that suggests screen fill light.
-  \item \textbf{Model upgrades}: keep the same input tensor shape and labels. This allows drop-in replacement without UI changes.
-  \item \textbf{Multi-signal fusion}: combine eye closure, head pose, and gaze dwell timers to reduce false alerts.
-  \item \textbf{Data logging}: add an opt-in log of anonymized events for research. Store locally and provide an export button.
-  \item \textbf{Localization}: externalize strings, support left-hand drive and right-hand drive hints.
-  \item \textbf{Future integrations}: vehicle systems and remote dashboards are out of scope for this phase. Document the API surface first if pursued later.
+    \item \textbf{Vertical Distraction (Pitch):} Update \texttt{FaceStateEvaluator.evaluate()} to incorporate \texttt{headEulerAngleX} checks. This will allow the system to detect when the user is looking up or down (e.g., at a sun visor or floor console).
+    \item \textbf{Recalibration State Management:} Refine the reset logic in \texttt{startCalibration()} to ensure that stale "RunningStats" from previous sessions are fully purged, preventing threshold drift.
+    \item \textbf{Persistent Alert History:} Implement a Firestore-backed repository to save \texttt{AlertEvent} records (type, timestamp, duration) so users can track their fatigue trends over multiple days.
+    \item \textbf{Cognitive Fallback Mode:} Develop a voice-activated prompt that triggers if the camera loses landmark tracking for >5 seconds, ensuring safety continues even in blind-spot conditions.
 \end{itemize}
 
 % ---------- 10.4 Instructions for System Deployment ----------
 \section{Instructions for System Deployment}
-
-\subsection{Platform Requirements}
-\begin{itemize}
-  \item Android 13 or newer on a Snapdragon device with a working front camera.
-  \item At least 4 GB RAM recommended.
-  \item Stable phone mount at or near eye level that does not block the road view.
-\end{itemize}
-
 \subsection{System Installation}
 \begin{enumerate}
-  \item Obtain the signed \texttt{release} APK from the build pipeline or \texttt{./gradlew assembleRelease}.
-  \item On the phone, allow install from this source if prompted.
-  \item Install the APK and launch ALVION from the app drawer.
-\end{enumerate}
-
-\subsection{First-Run Setup}
-\begin{enumerate}
-  \item Grant camera, audio, and vibration permissions.
-  \item Use the alignment screen to center the face in the guide box.
-  \item Choose alert style and volume. Keep defaults if unsure.
+    \item Build the release APK via \texttt{./gradlew assembleRelease}.
+    \item Deploy the APK to the target device via ADB or a secure download link.
+    \item Ensure "Unknown Sources" is enabled if installing directly from the APK file.
 \end{enumerate}
 
 % ---------- 10.5 Instructions for System End Users ----------
 \section{Instructions for System End Users}
-
 \subsection{Quick Start}
 \begin{enumerate}
-  \item Mount the phone securely at eye level. The front camera should see your face clearly.
-  \item Open ALVION and tap Start. Keep normal driving posture.
-  \item When an alert sounds or the phone vibrates, bring attention back to the road. Tap Stop when you end the drive.
+    \item \textbf{Login:} Authenticate using your ALVION account.
+    \item \textbf{Calibration:} Follow the on-screen prompts to look "Forward", "Left", and "Right". \textit{Note: The system will use Mirror Symmetry to assist if you only calibrate one side.}
+    \item \textbf{Monitor:} Tap "Start Monitoring". Ensure the phone is mounted at eye level.
 \end{enumerate}
 
-\subsection{Best Practices}
-\begin{itemize}
-  \item Use a stable mount. Avoid dashboard positions that bounce on rough roads.
-  \item Improve lighting when possible. Interior lights at night can help.
-  \item Keep the front camera lens clean.
-\end{itemize}
-
-\subsection{Understanding Alerts}
-\begin{itemize}
-  \item Short tone and banner indicates brief inattention.
-  \item Repeated tones and vibration indicate prolonged signals such as extended eye closure or sustained off-road gaze.
-  \item If alerts trigger too often, open settings and raise the dwell timer or threshold.
-\end{itemize}
-
 \subsection{Privacy}
-\begin{itemize}
-  \item Video is processed on the device. The app does not store video by default.
-  \item Optional logs record timestamps and event counts only. You can export or delete logs in settings.
-\end{itemize}
-
-\subsection{Support}
-\begin{itemize}
-  \item If the preview freezes, restart the app and unplug then reconnect the cable if using Android Auto.
-  \item If the app closes repeatedly, reduce other running apps and retry. Report the issue with the last log export if enabled.
-\end{itemize}
+ALVION processes all facial video frames in volatile memory. No video or identifiable face-prints are saved to the device or the cloud; only anonymized alert counts are synced to your profile history.
 
 \clearpage
 
 % ========================= 11. CONCLUSION =========================
 \chapter{Conclusion}
+The ALVION project has successfully transitioned from a theoretical concept to a functional Android prototype that utilizes on-device AI for driver safety. By leveraging the \textbf{ML Kit Face Detection SDK} and a custom-built \textbf{FaceStateEvaluator}, we have created a system that balances high-performance tracking with strict user privacy.
 
-This capstone turned classroom theory into a working system. We scoped a clear problem, translated it into user and system requirements, and built a phone-based prototype that detects signs of drowsiness or distraction on device. Along the way we practiced planning, communication, and fast iteration. The result is a proof of concept that is practical to run, transparent about its limits, and ready for future extension.
-
-% ========================= 11.1 ACHIEVEMENT =========================
 \section{Achievement}
-
 \begin{itemize}
-  \item Completed system analysis and design with documented functional and non-functional requirements, user scenarios, and traceability.
-  \item Implemented an Android prototype with camera preview, lightweight on-device inference, thresholding, and alert pathways.
-  \item Set up a basic test workflow, including instrumentation runs and initial performance checks for FPS, latency, and stability.
-  \item Researched the problem domain and shortlisted datasets, tools, and model options appropriate for on-device use.
-  \item Produced project documentation: architecture notes, setup instructions, and a concise user guide.
+    \item \textbf{Heuristic Accuracy:} Implemented a logic engine capable of $1800$ms drowsiness detection and tiered distraction timeouts based on subject-specific calibration.
+    \item \textbf{Automated Pipeline:} Established a robust CI/CD workflow that guards the codebase against logic regressions and code-style drift.
+    \item \textbf{Cloud Integration:} Successfully integrated Firebase for secure authentication and alert history, providing a complete "product" experience for the end user.
 \end{itemize}
 
-% ========================= 11.2 LESSONS LEARNED =========================
 \section{Lessons Learned}
+The development process highlighted the complexity of **state synchronization** in real-time vision apps. The team learned to prioritize "volatile processing" to maintain sub-$200$ms latency and discovered that subject-specific calibration is significantly more effective than static global thresholds for preventing false alerts.
 
-\begin{itemize}
-  \item Collaboration and teamwork: assigning clear owners and writing small, testable tasks kept progress moving.
-  \item Project management: visible backlogs and short check-ins helped us adjust when hardware or schedules changed.
-  \item Technical growth: working across Android, ML, and performance tuning improved our debugging and profiling skills.
-  \item Adaptability: we trimmed scope when needed, protected the MVP, and recorded follow-ups as future work.
-  \item Professionalism and accountability: frequent updates, reproducible steps, and tidy commits made handoff easier.
-\end{itemize}
-
-% ========================= 11.3 ACKNOWLEDGMENT =========================
 \section{Acknowledgment}
-
-We are grateful to our families and friends for steady encouragement. We thank \textbf{Qualcomm} for sponsoring this capstone and for guidance on mobile AI practices. We also thank \textbf{Professor Simon Fan} for mentorship and course structure that kept us focused. Finally, thanks to every team member for the effort and care put into design, implementation, and testing.
+We thank \textbf{Qualcomm} and the ALVION-AI organization for the resources and hardware context. Special thanks to \textbf{Professor Simon Fan} for the structural guidance that kept our requirements and testing aligned with industry standards.
 
 \clearpage
 
 % ========================= 12. REFERENCES =========================
 \chapter{References}
-% Add links/citations to datasets, Qualcomm docs, Android docs, papers.
-
-\section*{Bibliographies}
 
 \begin{enumerate}
-\item Dinges, D. F. \& Grace, R. 1998: PERCLOS: A Valid Psychophysiological Measure of Alertness as Assessed by Psychomotor Vigilance. FHWA Tech Brief (FHWA-MCRT-98-006).
-
-\item Szeliski, R. 2022: \textit{Computer Vision: Algorithms and Applications (2nd ed.)}. Springer.
-
-\item Android Developers 2025: CameraX Overview. Accessed 10/31/2025,
-https://developer.android.com/media/camera/camerax.
-
-\item Qualcomm 2025: Qualcomm\textsuperscript{\textregistered} AI Hub — Compile, Profile, Deploy On-Device. Accessed 10/31/2025,
-https://www.qualcomm.com/developer/artificial-intelligence.
-
-\item Qualcomm Developer (YouTube channel). Accessed 10/31/2025,
-https://www.youtube.com/qualcommdev.
-
-\item Hackers Realm 2025: Real-Time Driver Drowsiness Detection System (OpenCV, Python). Accessed 10/31/2025,
-https://www.youtube.com/watch?v=X8MjK-5CPF0.
-
-\item DataFlair 2025: Driver Drowsiness Detection System with OpenCV & Keras. Accessed 10/31/2025,
-https://data-flair.training/blogs/python-project-driver-drowsiness-detection-system/.
+    \item Google Developers. (2024). \textit{ML Kit Face Detection Guide}. Retrieved from https://developers.google.com/ml-kit/vision/face-detection.
+    \item Android Developers. (2024). \textit{CameraX Analysis and Lifecycle}. Retrieved from https://developer.android.com/media/camera/camerax.
+    \item Firebase Documentation. (2024). \textit{Firestore and Auth for Android}. Retrieved from https://firebase.google.com/docs/android/setup.
+    \item Dinges, D. F. \& Grace, R. (1998). \textit{PERCLOS: A Valid Psychophysiological Measure of Alertness}. FHWA Technical Brief.
 \end{enumerate}
-
-\appendix
 
 \section*{Appendix R: Requirements}
 \addcontentsline{toc}{section}{Appendix R: Requirements}
-
-\vspace{1em} % small spacing before PDF
-\includepdf[
-  pages=-,
-  pagecommand={},
-  fitpaper=true
-]{assets/CSU-SM-CSE-39-2026-SE-001-Team-009-Req-AllInOne.pdf}
+\includepdf[pages=-, fitpaper=true]{assets/CSU-SM-CSE-39-2026-SE-001-Team-009-Req-AllInOne.pdf}
 
 \section*{Appendix U: Use Cases}
 \addcontentsline{toc}{section}{Appendix U: Use Cases}
-
-\vspace{1em} % small spacing before PDF
-\includepdf[
-  pages=-,
-  pagecommand={},
-  fitpaper=true
-]{assets/CSU-SM-CSE-39-2026-SE-001-Team-009-UseCase-AllInOne.pdf}
+\includepdf[pages=-, fitpaper=true]{assets/CSU-SM-CSE-39-2026-SE-001-Team-009-UseCase-AllInOne.pdf}
 
 \section*{Appendix T: Test Cases}
 \addcontentsline{toc}{section}{Appendix T: Test Cases}
-
-\vspace{1em} % small spacing before PDF
-\includepdf[
-  pages=-,
-  pagecommand={},
-  fitpaper=true
-]{assets/CSU-SM-CSE-39-2026-SE-001-Team-009-AllInOne (12).pdf}
+\includepdf[pages=-, fitpaper=true]{assets/CSU-SM-CSE-39-2026-SE-001-Team-009-AllInOne (12).pdf}
 
 \section*{Appendix TE: Test Execution Report}
 \addcontentsline{toc}{section}{Appendix TE: Test Execution Report}
-
-\vspace{1em} % small spacing before PDF
-\includepdf[
-  pages=-,
-  pagecommand={},
-  fitpaper=true
-]{assets/CSU-SM-CSE-39-2026-SE-001-Team-009-AllInOne (10).pdf}
+\includepdf[pages=-, fitpaper=true]{assets/CSU-SM-CSE-39-2026-SE-001-Team-009-AllInOne (10).pdf}
 
 \end{document}
