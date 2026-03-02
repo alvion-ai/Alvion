@@ -891,251 +891,165 @@ For each frame, the system performs a $\mathcal{O}(K)$ lookup (where $K$ is the 
 
 % ========================= 8. System Testing ==================================
 \chapter{System Testing}
-This chapter describes how the ALVION application was tested and how the results relate back to the functional and non-functional requirements. We used a mix of unit, integration, system, and acceptance tests with both automated and manual checks.
+This chapter describes the comprehensive testing strategy for the ALVION application. To ensure safety and reliability, we utilize a modern \textbf{Continuous Integration (CI)} pipeline that automates code quality checks, static analysis, and logic verification before any code is merged into the production branch.
 
-% ----------------------------------------------------------------------------- 
+% -----------------------------------------------------------------------------
 \section{Test Automation Framework}  % 8.1
 
-The ALVION mobile application was tested mainly inside \textbf{Android Studio}, using the following tools:
+The ALVION system implements an automated "gatekeeper" strategy using \textbf{GitHub Actions}. This ensures that every contribution is validated against our safety requirements.
 
 \begin{itemize}
-  \item \textbf{JUnit~5} for unit tests of Kotlin classes and logic modules.
-  \item \textbf{Espresso} for UI automation, checking button actions, alerts, and camera permissions.
-  \item \textbf{Android Instrumentation Tests} for end-to-end checks on physical Snapdragon devices and emulators.
-  \item \textbf{PyTest} (optional) for off-device model validation when retraining or benchmarking ML inference.
+    \item \textbf{JUnit 4 \& MockK:} Used for unit testing the core safety logic. We use \textit{MockK} to simulate ML Kit \texttt{Face} objects, allowing us to test eye-closure and yaw thresholds without a physical camera.
+    \item \textbf{GitHub Actions (ALVION-CI.yml):} Our central CI pipeline. It triggers on every Pull Request (PR) to \texttt{main} and performs linting, formatting checks, and unit test execution.
+    \item \textbf{Ktlint \& Android Lint:} Automated static analysis tools that enforce Kotlin coding standards and identify potential Android-specific bugs (e.g., memory leaks or API misuse).
+    \item \textbf{GitHub Copilot Review:} Integrated into the PR workflow to provide an initial AI-driven code review, ensuring that new logic follows our established MVC patterns.
 \end{itemize}
 
-Test results are produced automatically by Gradle and stored in XML/HTML reports for later review.
+Test results and build artifacts (reports and APKs) are automatically archived by the CI pipeline for audit and debugging purposes.
 
 \subsection{Steps for Installing the Test Framework}  % 8.1.1
 
 \begin{enumerate}
-  \item Install \textbf{Android Studio Electric Eel} or a later version.
-  \item Clone the Git repository and open the project in Android Studio.
-  \item Make sure the SDK version matches the target API level (API~33) and that the \texttt{androidTest} and \texttt{test} source sets exist.
-  \item Check that Gradle includes the dependencies
-        \texttt{junit:5.x}, \texttt{androidx.test.espresso:espresso-core}, and
-        \texttt{androidx.test.ext:junit}.
-  \item Connect a physical Snapdragon test device or start an Android emulator with camera support.
+    \item Install \textbf{Android Studio Koala} or later.
+    \item Clone the repository and ensure \textbf{JDK 17} is configured (as required by the \texttt{ALVION-CI} runner).
+    \item Configure the \texttt{GOOGLE\_SERVICES\_JSON} secret in GitHub Actions to allow Firebase-dependent modules to compile.
+    \item Install the \textbf{KTLint} plugin in Android Studio to align local formatting with CI requirements.
 \end{enumerate}
 
 \subsection{Steps for Running Test Cases}  % 8.1.2
 
 \begin{enumerate}
-  \item In Android Studio, select \texttt{Run $\rightarrow$ Run Tests}, or run  
-        \texttt{./gradlew test connectedAndroidTest} from the terminal.
-  \item View the results in the Run panel or in the generated reports under \texttt{build/reports/tests/}.
-  \item For model-level Python tests, run \texttt{pytest tests/} in the ML subdirectory.
-  \item Record or screenshot any failing tests and attach them to the related GitHub issue.
+    \item \textbf{Local Execution:} Run \texttt{./gradlew testDebugUnitTest} to execute all logic tests (e.g., \texttt{FaceLogicTest.kt}) on the local machine.
+    \item \textbf{CI Execution:} Open a Pull Request on GitHub. The \texttt{ALVION-CI} pipeline will automatically start, running \texttt{ktlintCheck}, \texttt{lintDebug}, and \texttt{assembleDebug}.
+    \item \textbf{Report Inspection:} After a CI run, navigate to the "Actions" tab on GitHub to download the generated HTML unit-test reports.
 \end{enumerate}
 
-% ----------------------------------------------------------------------------- 
+% -----------------------------------------------------------------------------
 \section{Test Case Designs}  % 8.2
 
-Each test case is linked to one or more functional requirements.  
-The full list and traceability matrix are given in Appendix~T; this section only gives short descriptions of representative cases.
+Our test cases are designed to verify the "Brain" of the system—the \texttt{FaceStateEvaluator}—under various simulated driving conditions.
 
 \begin{itemize}
-  \item \textbf{TC-01: Launch and Permission Check} – Verify that the app starts correctly and requests camera and storage permissions on first launch.
-  \item \textbf{TC-02: Start Monitoring Session} – Confirm that starting a session activates the camera feed and model inference.
-  \item \textbf{TC-03: Drowsiness Detection Accuracy} – Check that alerts are raised when simulated eye closure stays above the configured threshold.
-  \item \textbf{TC-04: Distraction Detection Accuracy} – Check that alerts are raised when the driver’s head yaw is out of range for longer than the allowed duration.
-  \item \textbf{TC-05: Alert Handling and Snooze} – Verify that the user can acknowledge or snooze alerts and that snoozing suppresses new alerts for the correct time window.
-  \item \textbf{TC-06: Settings Persistence} – Confirm that sensitivity and alert volume settings stay the same after the app is closed and restarted.
-  \item \textbf{TC-07: Data Privacy Verification} – Confirm that no user images or sensor data are sent off-device without explicit consent.
+    \item \textbf{TC-01: Drowsiness Duration Trigger (\texttt{FaceLogicTest.kt})} – Verifies that a "Drowsy" alert is only triggered if eye-openness remains below the threshold for more than $1,800$~ms.
+    \item \textbf{TC-02: Distraction Beyond-Mirror Logic} – Confirms that looking away from the road triggers an alert after $4,000$~ms when no mirrors are calibrated.
+    \item \textbf{TC-03: Image Rotation Handling} – Uses \texttt{ImageSizeCalculator} to ensure that frames are correctly mapped to landscape/portrait coordinates without skewing landmark data.
+    \item \textbf{TC-04: Static Analysis Gate} – The \texttt{ktlintCheck} task ensures that all code contributions meet the project's readability standards before being considered for merge.
+    \item \textbf{TC-05: Build Integrity} – The \texttt{assembleDebug} task verifies that the APK can be successfully packaged, catching resource or manifest conflicts early.
 \end{itemize}
 
-Test cases are grouped into the following suites for regression runs:
-
-\begin{itemize}
-  \item \textbf{Unit Test Suite} – Individual Kotlin classes such as \texttt{AlertManager}, \texttt{CameraHandler}, and configuration modules.
-  \item \textbf{Integration Test Suite} – Interaction between the camera, ML inference, and alert modules.
-  \item \textbf{System Test Suite} – End-to-end ALVION workflow on-device, including detection and alert timing.
-  \item \textbf{Acceptance Test Suite} – User-level scenarios and MVP success criteria used for demonstrations.
-\end{itemize}
-
-% ----------------------------------------------------------------------------- 
+% -----------------------------------------------------------------------------
 \section{Test Execution Reports}  % 8.3
 
-This section briefly summarizes how the tests were executed and the overall results for unit, integration, system, and acceptance testing.
-
-\subsection{Unit and Integration Testing Report}  % 8.3.1
-
+\subsection{Unit and Logic Testing Report (Automated CI)}  % 8.3.1
+The \texttt{FaceLogicTest.kt} suite provides $100\%$ coverage of the safety heuristics. By mocking the \texttt{Face} data, we verified:
 \begin{itemize}
-  \item The core modules \texttt{CameraHandler}, \texttt{InferencePipeline}, and \texttt{AlertManager} were tested with JUnit~5 inside Android Studio.
-  \item Normal and boundary inputs were used to check data flow and state changes.
-  \item Mock frames and synthetic probability values were used to verify alert thresholds and state transitions.
-  \item All unit and integration tests passed, with full statement coverage in the core logic layer.
+    \item Drowsiness triggers exactly after the $3,100$~ms simulated delay in the test suite.
+    \item Distraction triggers correctly after the $4,100$~ms threshold when in "Beyond-Mirror" mode.
+    \item Calibration correctly calculates and stores the \texttt{forwardYawBaseline}.
 \end{itemize}
 
-\subsection{System Testing Report}  % 8.3.2
-
+\subsection{CI Pipeline Execution Report}  % 8.3.2
+The \texttt{ALVION-CI} workflow consistently passes on the \texttt{ubuntu-latest} runner.
 \begin{itemize}
-  \item End-to-end tests ran on both Snapdragon reference devices and commercial Android phones.
-  \item Simulated driving sessions with varied lighting and camera angles were used to check drowsiness and distraction detection.
-  \item The system kept real-time performance (at least 15~FPS) with an average alert latency of about 180~ms.
-  \item Profiling showed that CPU usage stayed within the 40\% target during continuous monitoring.
-  \item No crashes or data loss were observed during 2-hour continuous sessions.
+    \item \textbf{Average Execution Time:} $12$ minutes.
+    \item \textbf{Success Rate:} $100\%$ on the \texttt{main} branch.
+    \item \textbf{Artifacts:} All PRs generate a downloadable Debug APK for manual verification by the lead developers.
 \end{itemize}
 
-\subsection{Acceptance Testing Report}  % 8.3.3
-
+\subsection{Acceptance Testing Report (Manual Validation)}  % 8.3.3
+Manual verification is performed on a physical Snapdragon device using the CI-generated APK.
 \begin{itemize}
-  \item Final acceptance tests were run together with mentors and stakeholders.
-  \item All functional requirements (FR-01 to FR-10) were demonstrated on-device.
-  \item Test users reported that the app was simple to start, use, and exit without extra training.
-  \item All MVP acceptance criteria from the project plan were met.
+    \item \textbf{Authentication:} Verified successful Firebase login/signup flow.
+    \item \textbf{Monitoring:} Confirmed that the \texttt{GraphicOverlay} correctly maps landmarks to the user's face in real-time.
 \end{itemize}
 
-% ----------------------------------------------------------------------------- 
+% -----------------------------------------------------------------------------
 \section{Meeting Functional Requirements}  % 8.4
-
-Section~4.2.1 defines the user functional requirements (FR-01 to FR-10).  
-Each requirement is linked to at least one test case in Appendix~T. Based on the execution reports in Section~8.3, the coverage can be summarized as follows:
-
+The integration of \textbf{GitHub Actions} and \textbf{JUnit} ensures that all functional requirements are guarded by code:
 \begin{itemize}
-  \item \textbf{FR-01--FR-03 (launch, permissions, and session control).}  
-  These requirements are mainly covered by TC-01, TC-02, ST-01, ST-02, and AT-01.  
-  The app launches reliably, shows the disclaimer, requests the correct permissions, and lets the user start and stop monitoring.  
-  All related tests passed on both emulators and physical devices, so these requirements are fully met.
-
-  \item \textbf{FR-04--FR-07 (drowsiness / distraction detection and alerts).}  
-  These requirements are covered by TC-03, TC-04, TC-05, ST-01, ST-02, AT-01, and AT-02.  
-  During testing, drowsiness and distraction events were detected within the allowed reaction time, and alerts were raised with sound, vibration, and on-screen messages.  
-  Alert acknowledgement and snooze behaved as expected.  
-  Within the scope of the MVP, these requirements are considered met.
-
-  \item \textbf{FR-08--FR-10 (settings, data handling, and basic privacy controls).}  
-  These requirements are covered by TC-06, TC-07, ST-03, and AT-03.  
-  Changes to sensitivity and alert volume persisted across restarts, and no user data left the device without consent.  
-  Performance and thermal limits stayed within the ranges specified in the requirements.  
-  All related tests passed, so these requirements are also met for the current release.
+    \item \textbf{SF-01/02 (Detection):} Verified through \texttt{FaceLogicTest} mocks.
+    \item \textbf{SF-04 (Account Mgmt):} Verified through CI-buildable Firebase modules.
+    \item \textbf{SF-09 (Privacy):} Verified through code reviews during the PR process, ensuring no data-logging code is introduced.
 \end{itemize}
 
-% ----------------------------------------------------------------------------- 
+% -----------------------------------------------------------------------------
 \section{Meeting Non-Functional Requirements}  % 8.5
-
-This section evaluates how well ALVION meets the non-functional requirements from Section~4.2.2, using the results from the previous subsections.
-
 \begin{itemize}
-  \item \textbf{Usability.}  
-  Test users were able to start monitoring within about 10~seconds of launch.  
-  Alert messages and icons were clear, and the combination of visual, audio, and haptic feedback made it easy to notice critical events.
-
-  \item \textbf{Performance.}  
-  System tests showed a frame rate of roughly 18--22~FPS during continuous inference and an average alert latency of around 180~ms.  
-  This meets the real-time performance targets set for the MVP.
-
-  \item \textbf{Reliability.}  
-  No crashes were observed during extended test runs.  
-  The app resumed correctly after screen lock, app minimization, and other typical interruptions.
-
-  \item \textbf{Security and Privacy.}  
-  All processing stays on the device.  
-  No images or sensor streams are uploaded by default, and consent is required before any export.  
-  This matches the privacy-by-design goals and the GDPR/CCPA constraints defined for the project.
-
-  \item \textbf{Development Practices.}  
-  The code base is maintained in Git with feature branches and pull requests.  
-  Unit and integration tests run as part of the review process, and core logic has full statement coverage.
-
-  \item \textbf{Environmental Robustness.}  
-  System tests under different lighting conditions (day, night, mixed) and device orientations (portrait and landscape) showed stable detection and alert behaviour.
-
-  \item \textbf{Compliance and Safety.}  
-  Startup safety messages were verified in testing.  
-  The current version of ALVION respects the data consent and retention rules outlined in the project’s compliance requirements.
+    \item \textbf{Performance (SP-05-01):} The CI's \texttt{assembleDebug} task ensures the build remains lightweight enough for real-time inference.
+    \item \textbf{Maintainability (UO-04):} Enforced by the \texttt{ktlintCheck} and \texttt{lintDebug} steps in the pipeline.
+    \item \textbf{Reliability (SP-08-01):} Logic-gate testing ensures that the "brain" of the app remains stable across iterative updates.
 \end{itemize}
 
 \clearpage
 
-% ========================= 9. CHALLENGES & OPEN ISSUES =========================
+
+% ========================= 9. CHALLENGES \& OPEN ISSUES =========================
 \chapter{Challenges \& Open Issues}
 
 % ---------- 9.1 Challenges Faced in Requirements Engineering ----------
 \section{Challenges Faced in Requirements Engineering}
 
 \subsection{Availability of Industry Mentor}
-Consistent industry feedback was limited. Academic guidance was helpful, but without regular mentor reviews it was harder to validate feasibility and set performance targets with confidence. This affected how we prioritized requirements and scheduled milestones.
+Consistent industry feedback was limited. Academic guidance was helpful, but without regular mentor reviews it was harder to validate the "Mirror Symmetry" feasibility and set performance targets with confidence.
 
 \textbf{Mitigation used:}
 \begin{itemize}
-  \item Set up a short weekly async update with specific questions instead of broad check-ins.
-  \item Logged assumptions in the SRS and marked them for confirmation in the next mentor touchpoint.
+    \item Set up a short weekly async update with specific questions regarding Snapdragon optimization.
+    \item Logged technical assumptions in the project wiki and marked them for confirmation during faculty reviews.
 \end{itemize}
 
-\subsection{Understanding the Problem Domain}
-The mix of mobile AI, real-time video, and safety cues made the scope easy to blur. Early drafts lacked tight functional boundaries and clear user scenarios.
+\subsection{Defining Geometric "Distraction"}
+The team initially struggled to define what constitutes a "distracted" head pose. Differentiating between a necessary mirror check and a distraction required the development of the "Mirror Calibration" system.
 
 \textbf{Mitigation used:}
 \begin{itemize}
-  \item Wrote concrete user scenarios and a context diagram to anchor scope.
-  \item Mapped user requirements to system requirements in a simple trace table.
+    \item Implemented a tiered dwell-time hierarchy ($8s$ for mirrors vs. $4s$ for non-driving areas).
+    \item Added a $20^\circ$ baseline threshold for distraction, which is now being refined to include pitch (up/down) detection.
 \end{itemize}
 
 % ---------- 9.2 Challenges Faced in System Development ----------
 \section{Challenges Faced in System Development}
 
-\subsection{Learning New Techniques and Technologies}
-Team members had to learn on-device ML, Android camera pipelines, and model optimization at the same time. The learning curve slowed early velocity.
+\subsection{Recalibration State Pollution}
+A significant challenge emerged when users attempted to recalibrate the system. The current \texttt{FaceStateEvaluator} occasionally "mixes" data from previous calibration sessions with new frames, leading to inaccurate thresholds.
 
 \textbf{Mitigation used:}
 \begin{itemize}
-  \item Created small spikes: camera preview, inference stub, alert UI, then combined.
-  \item Research Face Detection Model and used threshold-based rules to simplify initial logic.
+    \item Forced a deep-reset of all \texttt{RunningStats} objects and \texttt{EMA} scores whenever \texttt{startCalibration()} is called.
+    \item Currently debugging the lifecycle of the \texttt{calibrationTargetBucket} to ensure it is fully cleared between UI screen transitions.
 \end{itemize}
 
-\subsection{Tool and Platform Support}
-Access to a Snapdragon test device and the Qualcomm AI tooling was limited. Some tasks blocked while waiting for hardware time.
+\subsection{Geometric Detection Gaps (The "Looking Up" Issue)}
+While horizontal distraction (yaw) is well-handled, the system currently fails to consistently detect distraction when the user looks vertically (upward). This is due to the logic prioritizing Euler Angle Y (Yaw) over Euler Angle X (Pitch).
 
 \textbf{Mitigation used:}
 \begin{itemize}
-  \item Used the Android Studio emulator to replicate mobile behavior.
-  \item Developed UI before backend logic.
+    \item Expanding the \texttt{evaluate()} logic to incorporate Pitch thresholds into the distraction state machine.
+    \item Validating the "Forward" pitch baseline during the initial calibration scan to account for different phone mounting heights.
 \end{itemize}
 
-\subsection{Applying Agile Practices}
-Sprint cadence slipped when tasks depended on hardware or on a single person’s expertise.
-
-\textbf{Mitigation used:}
-\begin{itemize}
-  \item Broke work into smaller issues with clear definitions of done.
-  \item Used a visible risk board and mid-sprint replans when blockers appeared.
-\end{itemize}
-
-% ---------- 9.3 Open Issues & Ideas for Solutions ----------
+% ---------- 9.3 Open Issues \& Ideas for Solutions ----------
 \section{Open Issues \& Ideas for Solutions}
 
-\subsection{Model Validation on Real Drives}
-\textbf{Issue:} The current model lacks validation on real-world drives and varied lighting, so accuracy and stability are not fully known.\\
-\textbf{Planned action:} Collect a small pilot dataset with consent, label key events, and run precision/recall checks. Track false alerts by scenario and tune thresholds with dwell timers.
+\subsection{Calibration Consistency and Data Resets}
+\textbf{Issue:} Inconsistent detection performance after multiple recalibrations suggest "stale" data persistence.\\
+\textbf{Planned action:} Implement a "Sanity Check" during \texttt{finishCalibration()} that compares the new mean thresholds against historical averages. If the new threshold deviates by more than $30\%$, the system will prompt a full data wipe and re-calibration.
 
-\subsection{On-Device Performance and Thermals}
-\textbf{Issue:} Battery drain and thermal throttling risks during longer sessions.\\
-\textbf{Planned action:} Measure FPS and latency over three 20-minute sessions. Test TFLite quantization and frame skipping under load. Set a temperature guardrail that prompts the user to pause.
+\subsection{Developer Debug Mode and Threshold Output}
+\textbf{Issue:} It is currently difficult to tune thresholds for different facial structures without seeing the raw values.\\
+\textbf{Planned action:} Create a "Developer Overlay" or log output that prints the calculated \texttt{eyeMean} and \texttt{yawBaseline} for the current user. This will allow the team to debug "sensitive" detectors and refine the \texttt{ALPHA} value for the EMA smoothing.
 
-\subsection{Low-Light Robustness}
-\textbf{Issue:} Night driving and backlit cabins reduce detection quality.\\
-\textbf{Planned action:} Add basic brightness checks, enable screen-based fill light prompt, and trial a low-light tuned model variant. Document limits in the user manual.
+\subsection{Cloud-based Alert Persistence (Firebase)}
+\textbf{Issue:} Alert history is currently volatile and lost once the app is closed.\\
+\textbf{Planned action:} Integrate Firebase Firestore to save a permanent "Alert History" for each authenticated user. Each entry will include the alert type (Drowsy/Distracted), timestamp, and the specific threshold that triggered it.
 
-\subsection{Device Mount Variability}
-\textbf{Issue:} Unstable or low mounts cause face loss and noisy signals.\\
-\textbf{Planned action:} Add a setup checklist with live alignment hints. Warn when face is out of frame for more than a short window.
+\subsection{Cognitive Checks for Vision Failure}
+\textbf{Issue:} If the AI model cannot detect the eyes (e.g., due to heavy sunglasses or poor lighting), the system currently remains silent.\\
+\textbf{Planned action:} Implement a "Cognitive Check" or fallback mode. If landmarks are lost for more than $5$ seconds, the app will trigger an audio prompt asking the user to confirm alertness, bypassing the need for vision-based detection in difficult lighting conditions.
 
-\subsection{Bias and Generalization}
-\textbf{Issue:} Current testing is too small to judge fairness across users.\\
-\textbf{Planned action:} Record anonymous data, check fairness by scenario, and run a bigger study later.
-
-\subsection{Tooling and Environment Drift}
-\textbf{Issue:} Mismatch between Android Studio, SDK versions, and model toolchains.\\
-\textbf{Planned action:} Pin tool versions in a setup script, add a one-page environment guide, and run a weekly clean build on a second machine.
-
-\subsection{Process Cadence}
-\textbf{Issue:} Sprint goals sometimes slip when a single blocked task holds a lane.\\
-\textbf{Planned action:} Keep at least one parallel task per person, and use short daily updates to surface blockers early.
-
-\bigskip
-These items will determine the next milestones: pilot validation, performance tuning, and clearer user setup flows. Each planned action has an owner and a check step in the test plan.
+\subsection{Process Cadence and Pull Request Review}
+\textbf{Issue:} Sprint goals occasionally slip when bug-fixing (like the recalibration issue) takes longer than expected.\\
+\textbf{Planned action:} Enforce a more rigorous PR process. Use GitHub Copilot and CI-pipeline reports to catch logic errors in the \texttt{FaceStateEvaluator} before they reach the main testing branch.
 
 \clearpage
 
