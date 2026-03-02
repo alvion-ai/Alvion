@@ -473,200 +473,123 @@ This section defines the technical constraints and quality standards the ALVION 
 
 % ---------- 5.1 Relevant Development Frameworks ----------
 \section{Relevant Development Frameworks}\label{sec:frameworks}
-We are building a phone-first prototype that runs entirely on the device. Each tool below has one clear job. We avoid extra moving parts so we can ship fast and keep the app stable on a Galaxy phone.
+We are building a phone-first prototype that runs entirely on the device. To ensure real-time performance and reliability on Android, we have selected a modern, native stack that minimizes external dependencies.
 
 \subsection{Android Studio (Kotlin)}
-\textbf{What it is.} Android Studio is the IDE; \textbf{Kotlin} is the language for our app.  
-\textbf{Why we use it.} It’s the standard way to build high-quality Android apps and gives us first-class access to the camera, sensors, and hardware acceleration.
+\textbf{What it is.} Android Studio is the official IDE; \textbf{Kotlin} is the primary implementation language.
+\textbf{Why we use it.} It provides the most robust support for modern Android development, including built-in profiling tools to monitor CPU and thermal impact during long driving sessions.
 
-\subsection{Front end: Jetpack Compose (native UI)}
-\textbf{What it is.} Compose is Kotlin’s modern UI toolkit (native, declarative), similar in feel to React, but it compiles to Android views directly.  
-\textbf{Why we use it.} We can design clean, responsive screens (camera preview overlay, status badges, settings) without XML. Compose + Material3 gives us polished components out of the box.  
-\textbf{UI libs we rely on (lightweight):} \emph{material3} (design system), \emph{accompanist-permissions} (runtime camera permission), \emph{coil} (optional image loading for debug).
+\subsection{Front end: Jetpack Compose (Material3)}
+\textbf{What it is.} Compose is Android’s modern declarative UI toolkit.
+\textbf{Why we use it.} It allows us to build responsive, high-performance UI overlays (e.g., the camera preview and alert badges) that react instantly to changes in the driver's attention state without the overhead of XML-based layouts.
 
-\subsection{Camera: CameraX (preview + frames for ML)}
-\textbf{What it is.} A high-level camera library on top of Camera2.  
-\textbf{Why we use it.} It gives us (1) a live preview for the UI and (2) an “analysis” stream of frames for ML—without wrestling with low-level sessions. It also handles rotation and lifecycle, and lets us “keep only latest” frames so the app stays smooth.
+\subsection{Camera: CameraX (Preview + Analysis)}
+\textbf{What it is.} A Jetpack library that simplifies camera integration.
+\textbf{Why we use it.} CameraX allows us to split the camera feed into two paths: a low-latency preview for the user and a continuous "Analysis" stream of image proxies. It handles device rotation and lifecycle management automatically, ensuring the app doesn't crash when backgrounded.
 
-\subsection{On-device inference: TensorFlow Lite (TFLite)}
-\textbf{What it is.} The small runtime that \emph{runs} a model file on the phone.  
-\textbf{Where it runs.} On the Galaxy device, inside our Kotlin app.  
-\textbf{Why we use it.} TFLite is portable and works with Android’s \textbf{NNAPI} so the phone can use hardware accelerators when available and CPU when not.  
-\textbf{Optional optimization.} On Snapdragon devices that expose the Hexagon/HTP path, we can enable \textbf{Qualcomm QNN} as a feature flag for extra speed/power savings. If QNN isn’t available, the app still runs via TFLite+NNAPI.
+\subsection{Inference: ML Kit Face Detection}
+\textbf{What it is.} An on-device Qualcomm SDK for vision tasks.
+\textbf{Why we use it.} ML Kit provides a pre-trained, highly optimized pipeline for facial landmarking. It returns the exact metrics needed for our safety logic—specifically eye-openness probabilities and head Euler angles (yaw)—without the need for custom model training or hosting.
 
-\subsection{Vision helpers: ML Kit / MediaPipe / OpenCV}
-\textbf{ML Kit Face Detection.} Fast path: gives eye-open probabilities and head yaw directly—no training needed.  
-\textbf{MediaPipe Face Landmarker.} Alternative that returns facial landmarks so we can compute eye openness (EAR) and yaw ourselves.  
-\textbf{OpenCV (optional).} A toolbox for basic image tasks (resize, crop, color convert, draw debug overlays). We add it only if we need it, behind a small Kotlin interface, so the rest of the app stays the same.
+\subsection{Backend: Firebase Authentication}
+\textbf{What it is.} A secure cloud-based identity platform.
+\textbf{Why we use it.} To support personal session history and persistent user settings, we utilize Firebase for secure login and account management, ensuring that driver profiles are protected and easily accessible.
 
-\subsection{Training (off-device, only if needed): PyTorch \texorpdfstring{$\rightarrow$}{->} ONNX \texorpdfstring{$\rightarrow$}{->} TFLite}
-\textbf{What it is.} \textbf{PyTorch} is used on a laptop/Colab to \emph{train} a tiny eye-state model if field tests show we need one.  
-\textbf{Where it runs.} Off-device. The phone does \emph{not} train.  
-\textbf{Why we use it.} PyTorch is quick to iterate. We export PyTorch $\to$ ONNX $\to$ \textbf{TFLite (INT8)} so the Android app can run the model with TFLite+NNAPI/QNN. If post-training quantization reduces accuracy too much, we try light QAT; otherwise we keep PTQ for simplicity.
-
-\subsection{Project glue, performance, and stability}
-\textbf{Gradle} builds the app. \textbf{Kotlin coroutines/Flow} keep ML off the UI thread. The analyzer uses “\emph{keep only latest}” so we never build a big queue—this bounds latency and avoids stutter. We monitor timing and thermals with \textbf{Android Profiler} and \textbf{Perfetto}; if the phone warms up, we downshift internal inference rate (e.g., 30 $\rightarrow$ 24 FPS) while keeping the UI responsive.
+\subsection{Project Glue: Coroutines and Flow}
+\textbf{What it is.} Kotlin’s asynchronous programming primitives.
+\textbf{Why we use it.} We use \textbf{Coroutines} to keep the heavy ML analysis off the main UI thread. \textbf{Flow} allows us to stream detection events (e.g., a "Drowsy" signal) from the logic layer to the UI layer in real-time with minimal latency.
 
 \subsection*{Tool roles at a glance}
 \begin{center}
-\begin{tabular}{p{3.2cm} p{5.3cm} p{7.2cm}}
-\toprule
-\textbf{Tool} & \textbf{Role} & \textbf{Why it’s in the stack} \\
-\midrule
-Android Studio + Kotlin & App development & Official Android toolchain; fastest path to a stable, native app\\
-\\
-Jetpack Compose (Material3) & Front-end UI & Native, declarative UI; polished components; easy to iterate\\
-\\
-CameraX & Camera preview + frame analysis & Fewer device quirks; easy lifecycle; analysis frames for ML, backpressure control\\
-\\
-TFLite (+NNAPI) & On-device inference & Portable runtime; uses accelerators when available; sane CPU fallback\\
-\\
-QNN (optional) & Snapdragon acceleration & Feature flag for extra speed/power on supported devices\\
-\\
-ML Kit / MediaPipe & Ready facial signals & Eye-open probability / landmarks without training; jump-start MVP\\
-\\
-OpenCV (optional) & Image utilities & Only if we need extra preprocessing or debug overlays\\
-\\
-PyTorch (off-device) & Training (if needed) & Fast to prototype a tiny eye-state model; exports to TFLite for the app \\
-\bottomrule
-\end{tabular}
+    \begin{tabular}{p{4.0cm} p{5.0cm} p{6.4cm}}
+        \toprule
+        \textbf{Tool} & \textbf{Role} & \textbf{Why it’s in the stack} \\
+        \midrule
+        Android Studio + Kotlin & App development & Native toolchain; full hardware access.\\
+        \\
+        Jetpack Compose & Declarative UI & Reactive alerts and polished components.\\
+        \\
+        CameraX & Frame Analysis & Reliable frame capture; handles rotation.\\
+        \\
+        ML Kit Face Detection & Vision Inference & Pre-trained metrics for eyes and yaw.\\
+        \\
+        Firebase Auth & User Accounts & Secure, standardized login flow.\\
+        \\
+        Kotlin Coroutines & Concurrency & Keeps UI responsive during ML tasks.\\
+        \bottomrule
+    \end{tabular}
 \end{center}
 
-% ---------- 5.2 Relevant Solution Techniques & Dataset Strategy ----------
-\section{Relevant Solution Techniques \& Dataset Strategy}\label{sec:solutions}
-Our objective is a reliable, real-time demo on a Snapdragon phone. We will \emph{not} train from scratch. Instead, we use a tiered approach that prioritizes fast geometric signals on-device and selectively leverages an existing MobileNetV2 model trained on a large Kaggle dataset.
+% ---------- 5.2 Relevant Solution Techniques ----------
+\section{Relevant Solution Techniques}\label{sec:solutions}
+ALVION utilizes a heuristic-based detection engine built on top of pre-trained facial landmark metrics provided by ML Kit. Rather than training a custom classifier, our technique focuses on \textbf{subject-specific calibration} and \textbf{temporal smoothing} to ensure accuracy across different drivers and mounting angles.
 
-\subsection{Tiered Runtime (device-first)}
-\paragraph{Tier 1 (default, no training).}
-Face landmarks on device (e.g., ML Kit or MediaPipe) to estimate:
+\subsection{Calibration Strategy: Multi-Angle Scan}
+A core innovation of the system is the multi-angle calibration routine, which establishes the driver's unique visual geometry before monitoring begins. This prevents false alerts caused by natural variations in seating position or device mounting.
+
 \begin{itemize}
-  \item \textbf{Eye openness:} framewise openness per eye; PERCLOS over a sliding window for drowsiness.
-  \item \textbf{Head yaw (left/right):} hysteresis + timeout to flag distraction rather than micro head jitters.
-  \item \textbf{Alert logic:} debounce and cooldown to avoid spam; parameters tuned by short in-app tests.
+    \item \textbf{Forward Baseline Establishment:} The driver is prompted to look straight ahead at the road. The system captures a series of frames to establish a \texttt{forwardYawBaseline}. All subsequent head movements are calculated as a \textit{Yaw Delta} relative to this baseline.
+    \item \textbf{Mirror Angle Bucketing:} The system provides specific "buckets" for the Left Mirror, Center/Forward, and Right Mirror. During calibration, the driver scans these positions, and the system records the specific Euler Y (yaw) angles and eye-openness ranges for each.
+    \item \textbf{Mirror Symmetry Logic:} To minimize setup time, the system implements symmetry-based inference. If a driver only calibrates the "Left Mirror" bucket, the system automatically calculates the expected "Right Mirror" yaw and eye-thresholds by mirroring the left-side data relative to the forward baseline.
 \end{itemize}
-This tier runs continuously at $\approx$24--30 FPS and is our primary signal path.
 
-\paragraph{Tier 2 (assist, only when needed).}
-A compact classifier (MobileNetV2) pre-trained via a Kaggle pipeline on $\sim$40k images. We call it only when Tier~1 is uncertain (e.g., low landmark confidence, glasses, low light). The model operates on a face/eye ROI and returns an \emph{eye state} or \emph{drowsy/alert} vote that is fused with Tier~1 signals.
+\subsection{Detection Logic: Eye Thresholds and Head Pose}
+The detection engine processes the calibrated data using two parallel logic paths for Drowsiness and Distraction.
 
-\begin{center}
-\begin{tabular}{p{4.0cm} p{5.0cm} p{5.8cm}}
-\toprule
-\textbf{Component} & \textbf{Signal/Role} & \textbf{Why it fits our goal} \\
-\midrule
-Tier 1: Landmarks + PERCLOS & Eye openness, head yaw & High FPS, low battery, explainable thresholds.\\
-\\
-Tier 2: MobileNetV2 (Kaggle) & Eye/drowsiness vote on ROI & Robustness under glasses/low light; called sparingly.\\
-\\
-Fusion \& Alerts & Debounce/hysteresis & Stable user experience; fewer false alarms.\\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\subsection{MobilenetV2 Baseline: Adopt $\rightarrow$ Audit $\rightarrow$ Adapt}
-We leverage an existing Kaggle MobileNetV2 training pipeline and dataset to save time. Our process ensures we do not ship a brittle model.
-
-\paragraph{Adopt (establish a baseline).}
-\begin{enumerate}[label=(\alph*)]
-  \item Reproduce the MobileNetV2 notebook end-to-end; save checkpoints and confusion matrices.
-  \item Add a simple inference script that accepts face/eye crops (to match phone ROI).
+\paragraph{Drowsiness (Sustained Eye Closure):}
+The system implements a \textbf{PERCLOS Proxy} (Percentage of Eyelid Closure) using a duration-based trigger.
+\begin{enumerate}
+    \item \textbf{EMA Smoothing:} Raw eye-openness scores from ML Kit are processed using an \textit{Exponential Moving Average} ($\alpha = 0.45$) to filter out momentary blinks and sensor noise.
+    \item \textbf{Dynamic Thresholding:} Instead of a fixed 0.5 threshold, the system uses the eye-openness stats gathered during calibration to set a custom "closed" threshold for each driver.
+    \item \textbf{Temporal Trigger:} If the EMA eye-score remains below the threshold for more than $1,800$~ms, a "Drowsy" event is published to the alert manager.
 \end{enumerate}
 
-\paragraph{Audit (trust but verify).}
-\begin{enumerate}[label=(\alph*)]
-  \item \textbf{Labels \& classes:} confirm the class semantics (e.g., open/closed vs.\ drowsy/alert) align with PERCLOS.
-  \item \textbf{Subject-wise splits:} ensure no identity leakage between train/val/test.
-  \item \textbf{Duplicates/balance:} scan for near-duplicates; rebalance if needed.
-  \item \textbf{Viewpoint gap:} note differences between webcam/selfie data and in-car angles.
-  \item \textbf{License/terms:} confirm research use; no redistribution of face images outside the team.
+\paragraph{Distraction (Yaw Deviation):}
+Distraction is detected by monitoring the \textit{Yaw Delta} against a dwell-time hierarchy.
+\begin{enumerate}
+    \item \textbf{Mirror-Check Tolerance:} If the driver is looking toward a calibrated mirror angle, the system allows a longer dwell time ($8,000$~ms) to account for normal traffic checks.
+    \item \textbf{Beyond-Mirror Deviation:} If the yaw delta exceeds the mirror range (indicating the driver is looking at a passenger or a phone), a shorter dwell time ($4,000$~ms) is enforced before an alert is triggered.
+    \item \textbf{Yaw Hysteresis:} To prevent alert "flickering" near the threshold, the system requires the head to return $8^\circ$ back toward the center before the distraction state is reset.
 \end{enumerate}
 
-\paragraph{Adapt (make it phone-ready).}
-\begin{enumerate}[label=(\alph*)]
-  \item Convert Keras/ONNX $\rightarrow$ \textbf{TFLite (INT8)}; run with \textbf{NNAPI} and optionally \textbf{QNN} on Snapdragon.
-  \item Gate Tier~2 by Tier~1 uncertainty and fuse votes (majority/weighted).
-  \item Tune thresholds on short in-app clips (day/night, with/without glasses) to bound alert latency.
-\end{enumerate}
+\subsection{Evaluation and Tuning Strategy}
+Since the system uses a pre-trained model for landmarks, our evaluation focus shifts from "Model Accuracy" to "Pipeline Robustness."
 
-\subsection{Public Datasets and Roles}
-We combine complementary datasets for targeted purposes instead of chasing a single ``perfect'' corpus.
-
-\begin{center}
-\begin{tabular}{p{3.2cm} p{4.2cm} p{6.6cm}}
-\toprule
-\textbf{Dataset} & \textbf{We use it for} & \textbf{Notes} \\
-\midrule
-Kaggle DDD (Mobile NetV2 baseline) & Pretrained model; ROI inference & Large scale; must audit labels, duplicates, and viewpoint.\\
-\\
-CEW (Closed Eyes in the Wild) & Eye open/closed signal & Real-world variation; aligns with PERCLOS.\\
-\\
-MRL Eye(RGB/IR) & Eye robustness & Lighting/IR diversity helpful for glasses/low light.\\
-\\
-RT - BENE (blink) & Blink dynamics & Stabilizes PERCLOS over time windows.\\
-\\
-NTHU Drowsy Driver & In-car realism check & Use for threshold tuning and qualitative validation\\
-\\
-UTA RLDD & Fatigue staging sanity check & Normal/low/high fatigue conditions (evaluation only).\\
-\\
-YawDD (optional) & Yawn/mouth cue & Auxiliary if we add a mouth component later.\\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\paragraph{Why this mix works.}
-Eye/blink sets map directly to the quantity we aggregate (openness/blink rate), while driver video sets provide in-car realism for threshold tuning and qualitative checks. The Kaggle model gives us a practical assist without dictating the whole pipeline.
-
-\subsection{Kaggle Dataset: ``Good Enough'' Criteria}
-A big number (e.g., 40{,}000 images) is not automatically better. We gate usage with a quick vet:
 \begin{itemize}
-  \item \textbf{Viewpoint:} prefer driver-facing; document angle differences if mostly webcam/selfie.
-  \item \textbf{Labels:} must support eye state/blink or defensible drowsy/alert mapping.
-  \item \textbf{Duplicates/balance:} remove near-duplicates; maintain class balance.
-  \item \textbf{Subjects:} enforce subject-wise splits to avoid identity leakage.
-  \item \textbf{License/terms:} research/educational use confirmed.
-\end{itemize}
-If it passes, we use it as a \emph{supplemental assist} to Tier~1 and as a fallback vote; if noisy, we restrict it to augmentation experiments or discard.
-
-\subsection{Evaluation Without Overfitting}
-\begin{itemize}
-  \item \textbf{Device-first metrics:} FPS, mean inference time, and alert latency on the reference Galaxy device.
-  \item \textbf{Human sense-check:} short clips (day/night, glasses/no glasses) to ensure alerts feel reasonable.
-  \item \textbf{Condition breakdown:} report errors by lighting, eyewear, and head pose; not just overall accuracy.
-  \item \textbf{Cross-dataset sanity:} run NTHU/RLDD samples through the on-device build to validate thresholds.
+    \item \textbf{Environmental Validation:} The pipeline is tested across three primary lighting conditions: High Noon (direct sunlight), Overcast (diffuse light), and Night (artificial cabin light).
+    \item \textbf{Occlusion Testing:} Evaluation specifically targets how well the ML Kit landmarks maintain stability when the driver wears prescription glasses or sunglasses.
+    \item \textbf{Latency Benchmarking:} We measure the "End-to-End" latency—from the moment the eyes close to the moment the haptic motor vibrates—to ensure we stay below the $200$~ms performance requirement.
 \end{itemize}
 
 \subsection{What ``Success'' Looks Like}
-A working Android app on a Snapdragon phone that:
+A successful implementation on the Snapdragon target device is defined by:
 \begin{itemize}
-  \item runs entirely on-device (camera $\rightarrow$ landmarks/ML $\rightarrow$ aggregation $\rightarrow$ alerts),
-  \item sustains $\approx$24--30 FPS with bounded latency and low thermal impact,
-  \item triggers sensible drowsy/distraction alerts across common conditions,
-  \item optionally demonstrates a speed/power gain with QNN enabled on Snapdragon.
+    \item \textbf{Zero-Cloud Dependency:} All calibration and detection logic executes locally via the ML Kit SDK.
+    \item \textbf{Stable 24--30 FPS:} Smooth camera preview and concurrent analysis without thermal throttling.
+    \item \textbf{Low False-Positive Rate:} The "Mirror Symmetry" and "EMA Smoothing" logic correctly distinguishes between a long blink and true drowsiness.
 \end{itemize}
-We intentionally avoid training from scratch; disciplined reuse of a Kaggle MobileNetV2 baseline and focused public datasets, combined with on-device tuning, are sufficient for the course deliverable.
 
 % ---------- 5.3 Broader Impacts ----------
 \section{Broader Impacts}\label{sec:impacts}
 
-This project has meaningful implications at multiple scales—individual, organizational, and societal. Because the system runs entirely on a smartphone and requires no specialized hardware, its potential reach extends from local communities to global populations who rely on older vehicles or long-hours work environments.
+The ALVION project demonstrates the feasibility of bringing advanced safety features to a wider demographic without the need for high-cost, integrated vehicle hardware. By leveraging commodity smartphone sensors and on-device ML, the project creates meaningful impacts in road safety and mobile AI application design.
 
-\subsection*{Impact on Individuals}
+\subsection*{Impact on Drivers}
 \begin{itemize}
-    \item \textbf{Improved personal safety.} Drivers of older vehicles, who often lack built-in driver-monitoring systems, gain access to real-time drowsiness and distraction alerts that can reduce the risk of accidents.
-    \item \textbf{Health and well-being.} Outside of driving, individuals such as night-shift workers, office workers, or students benefit from fatigue detection that encourages healthier break habits and reduces burnout.
-    \item \textbf{Privacy protection.} All processing occurs on the device, ensuring individuals can use the tool without sacrificing personal data or video privacy.
+    \item \textbf{Safety for Legacy Vehicles.} The most immediate impact is on drivers of older vehicles that lack built-in Driver Monitoring Systems (DMS). ALVION provides these users with a low-cost alternative to expensive retrofit hardware, offering real-time alerts that can prevent accidents caused by fatigue or distraction.
+    \item \textbf{Low-Barrier Awareness.} Because the system requires only a standard Android device, it encourages safer driving habits through immediate feedback, helping drivers recognize their own fatigue patterns before they become a critical danger.
 \end{itemize}
 
-\subsection*{Impact on Organizations}
+\subsection*{Impact on Technical Development}
 \begin{itemize}
-    \item \textbf{Workplace safety programs.} Companies with employees who drive regularly (delivery, logistics, transportation, field services) can adopt this tool as a low-cost safety enhancement without installing proprietary monitoring hardware.
-    \item \textbf{Productivity and risk reduction.} Fatigue-related incidents in the workplace cost organizations time and money; early warning signals can reduce errors and improve overall performance.
+    \item \textbf{Proof-of-Concept for On-Device AI.} ALVION serves as a practical demonstration of running complex, real-time vision pipelines (ML Kit and CameraX) on Snapdragon hardware. This provides a template for other developers looking to build safety-critical applications that must remain responsive without relying on cloud connectivity.
+    \item \textbf{Resource-Efficient Safety.} The project proves that sophisticated safety signals—like yaw delta and eyelid closure—can be computed with minimal battery and thermal impact, setting a baseline for what is achievable in modern edge-based AI.
 \end{itemize}
 
-\subsection*{Impact on Society (Local and Global)}
+\subsection*{Impact on Public Safety and Accessibility}
 \begin{itemize}
-    \item \textbf{Public safety.} Fatigue-related driving accidents remain a global problem. A mobile-based solution can reach communities that lack access to modern car safety features, creating safer roads with minimal infrastructure cost.
-    \item \textbf{Accessibility and equity.} By leveraging widely available smartphone hardware, the tool lowers barriers to advanced safety technology for low-income users and regions where newer vehicles are less common.
+    \item \textbf{Road Safety Democratization.} High-end safety technology is often locked behind luxury vehicle tiers. By developing a mobile-first solution, this project contributes to a more equitable landscape where road safety tools are accessible to anyone with a smartphone, potentially reducing the frequency of fatigue-related collisions globally.
+    \item \textbf{Infrastructure Independence.} Unlike systems that require continuous cloud processing or dedicated vehicle sensors, ALVION operates entirely independently. This makes it a viable safety tool in areas with poor network coverage or for users who prioritize offline, autonomous operation.
 \end{itemize}
 
 
