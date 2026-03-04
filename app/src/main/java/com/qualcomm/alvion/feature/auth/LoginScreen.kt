@@ -186,12 +186,12 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                                     errorMessage = "Please enter your email to reset password"
                                     isError = true
                                 } else {
-                                    auth.sendPasswordResetEmail(email.trim())
+                                    auth
+                                        .sendPasswordResetEmail(email.trim())
                                         .addOnSuccessListener {
                                             errorMessage = "Reset link sent to $email"
                                             isError = false
-                                        }
-                                        .addOnFailureListener {
+                                        }.addOnFailureListener {
                                             errorMessage = it.message
                                             isError = true
                                         }
@@ -270,14 +270,16 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                             }
 
                             if (isLogin) {
-                                auth.signInWithEmailAndPassword(email.trim(), password)
+                                auth
+                                    .signInWithEmailAndPassword(email.trim(), password)
                                     .addOnSuccessListener { onLoginSuccess() }
                                     .addOnFailureListener {
                                         errorMessage = it.message
                                         isError = true
                                     }
                             } else {
-                                auth.createUserWithEmailAndPassword(email.trim(), password)
+                                auth
+                                    .createUserWithEmailAndPassword(email.trim(), password)
                                     .addOnSuccessListener { onLoginSuccess() }
                                     .addOnFailureListener {
                                         errorMessage = it.message

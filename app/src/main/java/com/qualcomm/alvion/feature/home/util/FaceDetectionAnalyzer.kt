@@ -52,15 +52,14 @@ class FaceDetectionAnalyzer(
 
         val image = InputImage.fromMediaImage(mediaImage, rotation)
 
-        detector.process(image)
+        detector
+            .process(image)
             .addOnSuccessListener { faces ->
                 onFacesDetected(faces)
                 evaluator.evaluate(faces)
-            }
-            .addOnFailureListener { e ->
+            }.addOnFailureListener { e ->
                 e.printStackTrace()
-            }
-            .addOnCompleteListener {
+            }.addOnCompleteListener {
                 imageProxy.close()
             }
     }
@@ -72,13 +71,12 @@ object ImageSizeCalculator {
         rotation: Int,
         width: Int,
         height: Int,
-    ): Pair<Int, Int> {
-        return if (rotation == 90 || rotation == 270) {
+    ): Pair<Int, Int> =
+        if (rotation == 90 || rotation == 270) {
             height to width
         } else {
             width to height
         }
-    }
 }
 
 /**
@@ -141,7 +139,8 @@ interface FaceProcessor {
 /** Default production implementation */
 class MlKitFaceProcessor : FaceProcessor {
     private val opts =
-        FaceDetectorOptions.Builder()
+        FaceDetectorOptions
+            .Builder()
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
             .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
             .build()

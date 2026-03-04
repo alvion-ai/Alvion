@@ -35,17 +35,25 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.Timestamp
 import com.google.mlkit.vision.face.Face
 import com.qualcomm.alvion.R
+import com.qualcomm.alvion.feature.history.HistoryViewModel
+import com.qualcomm.alvion.feature.history.Trip
+import com.qualcomm.alvion.feature.history.TripAlert
 import com.qualcomm.alvion.feature.home.components.CameraPreviewBox
 import com.qualcomm.alvion.feature.home.components.GraphicOverlay
 import com.qualcomm.alvion.feature.home.util.FaceDetectionAnalyzer
 import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun HomeTab(
     onSettings: () -> Unit,
     onSummary: () -> Unit,
+    historyViewModel: HistoryViewModel = viewModel(),
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -65,15 +73,41 @@ fun HomeTab(
     var imageWidth by remember { mutableIntStateOf(0) }
     var imageHeight by remember { mutableIntStateOf(0) }
 
+    // --- History Tracking State ---
+    var sessionStartTime by remember { mutableStateOf<Timestamp?>(null) }
+    val currentSessionAlerts = remember { mutableStateListOf<TripAlert>() }
+    var lastDrowsyLogTime by remember { mutableLongStateOf(0L) }
+    var lastDistractedLogTime by remember { mutableLongStateOf(0L) }
+    val COOLDOWN_MS = 30_000L // 30 second cooldown for grouping alerts
+
     LaunchedEffect(isSessionActive) {
         if (isSessionActive) {
             elapsedSeconds = 0
+            sessionStartTime = Timestamp.now()
+            currentSessionAlerts.clear()
+            lastDrowsyLogTime = 0L
+            lastDistractedLogTime = 0L
+
             while (isSessionActive) {
                 delay(1000)
                 elapsedSeconds += 1
             }
         } else {
+            // Save Trip when session ends
+            sessionStartTime?.let { start ->
+                val end = Timestamp.now()
+                val trip =
+                    Trip(
+                        dateLabel = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(start.toDate()),
+                        startTime = start,
+                        endTime = end,
+                        durationLabel = formatHMS(elapsedSeconds),
+                        alerts = currentSessionAlerts.toList(),
+                    )
+                historyViewModel.saveTrip(trip)
+            }
             aiMessage = null
+            sessionStartTime = null
         }
     }
 
@@ -108,11 +142,18 @@ fun HomeTab(
             FaceDetectionAnalyzer(
                 onFacesDetected = { faces = it },
                 onDrowsy = {
+                    val now = System.currentTimeMillis()
                     warnings += 1
                     aiMessage = "Drowsiness detected. Cognitive check required!"
+
+                    // Group alerts with cooldown
+                    if (now - lastDrowsyLogTime > COOLDOWN_MS) {
+                        currentSessionAlerts.add(TripAlert("DROWSINESS", Timestamp.now()))
+                        lastDrowsyLogTime = now
+                    }
+
                     if (soundEnabled) {
                         mediaPlayer?.let { player ->
-                            // ONLY start if not already playing. Avoid resetting to 0 every frame.
                             if (!player.isPlaying) {
                                 try {
                                     player.start()
@@ -124,11 +165,18 @@ fun HomeTab(
                     }
                 },
                 onDistracted = {
+                    val now = System.currentTimeMillis()
                     warnings += 1
                     aiMessage = "Please stay focused on the road."
+
+                    // Group alerts with cooldown
+                    if (now - lastDistractedLogTime > COOLDOWN_MS) {
+                        currentSessionAlerts.add(TripAlert("DISTRACTION", Timestamp.now()))
+                        lastDistractedLogTime = now
+                    }
+
                     if (soundEnabled) {
                         mediaPlayer?.let { player ->
-                            // ONLY start if not already playing. Avoid resetting to 0 every frame.
                             if (!player.isPlaying) {
                                 try {
                                     player.start()
@@ -373,9 +421,23 @@ fun HomeTab(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     MetricCardModern(
                         label = "Alertness",
-                        value = if (warnings == 0) "Optimal" else if (warnings < 3) "Caution" else "Low",
+                        value =
+                            if (warnings == 0) {
+                                "Optimal"
+                            } else if (warnings < 3) {
+                                "Caution"
+                            } else {
+                                "Low"
+                            },
                         icon = Icons.Default.Visibility,
-                        color = if (warnings == 0) Color(0xFF10B981) else if (warnings < 3) Color(0xFFF59E0B) else Color(0xFFEF4444),
+                        color =
+                            if (warnings == 0) {
+                                Color(0xFF10B981)
+                            } else if (warnings < 3) {
+                                Color(0xFFF59E0B)
+                            } else {
+                                Color(0xFFEF4444)
+                            },
                         modifier = Modifier.weight(1f),
                     )
                     MetricCardModern(
@@ -458,7 +520,13 @@ fun MetricCardModern(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)),
     ) {
         Row(Modifier.padding(16.dp).height(IntrinsicSize.Min)) {
-            Box(Modifier.fillMaxHeight().width(4.dp).clip(CircleShape).background(color))
+            Box(
+                Modifier
+                    .fillMaxHeight()
+                    .width(4.dp)
+                    .clip(CircleShape)
+                    .background(color),
+            )
             Spacer(Modifier.width(12.dp))
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -487,7 +555,7 @@ fun EmergencyCardModern(
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Phone, null, Modifier.size(14.dp), tint = Color(0xFFEF4444))
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(6.6.dp))
                 Text("Emergency", fontSize = 12.sp, color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
             }
             Text("SOS Call", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444))
@@ -517,7 +585,8 @@ private fun createAlertPlayer(context: Context): MediaPlayer? {
     val player = MediaPlayer()
     return try {
         val attributes =
-            AudioAttributes.Builder()
+            AudioAttributes
+                .Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
