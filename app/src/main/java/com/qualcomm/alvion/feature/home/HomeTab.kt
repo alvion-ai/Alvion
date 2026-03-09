@@ -523,50 +523,7 @@ private fun CameraCard(
     }
 }
 
-            // --- METRICS GRID ---
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MetricCardModern(
-                        label = "Alertness",
-                        value =
-                            if (warnings == 0) {
-                                "Optimal"
-                            } else if (warnings < 3) {
-                                "Caution"
-                            } else {
-                                "Low"
-                            },
-                        icon = Icons.Default.Visibility,
-                        color =
-                            if (warnings == 0) {
-                                Color(0xFF10B981)
-                            } else if (warnings < 3) {
-                                Color(0xFFF59E0B)
-                            } else {
-                                Color(0xFFEF4444)
-                            },
-                        modifier = Modifier.weight(1f),
-                    )
-                    MetricCardModern(
-                        label = "Duration",
-                        value = formatHMS(elapsedSeconds),
-                        icon = Icons.Default.Timer,
-                        color = primaryBlue,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MetricCardModern(
-                        label = "Speed",
-                        value = "$speedKmh km/h",
-                        icon = Icons.Default.Speed,
-                        color = primaryBlue,
-                        modifier = Modifier.weight(1f),
-                    )
-                    EmergencyCardModern(
-                        onCall = { makeEmergencyCall(context, "9513034883") },
-                        modifier = Modifier.weight(1f),
-                    )
+           
 @Composable
 private fun StandbyContent() {
     Column(
