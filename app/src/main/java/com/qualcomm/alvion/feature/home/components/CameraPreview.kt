@@ -93,7 +93,8 @@ fun CameraPreviewBox(
 
                     val imageAnalysis =
                         analyzer?.let {
-                            ImageAnalysis.Builder()
+                            ImageAnalysis
+                                .Builder()
                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                 .build()
                                 .also { it.setAnalyzer(Executors.newSingleThreadExecutor(), analyzer) }

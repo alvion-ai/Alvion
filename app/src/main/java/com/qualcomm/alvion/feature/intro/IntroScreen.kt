@@ -441,8 +441,7 @@ private fun FloatingIconCard(
                 .clip(RoundedCornerShape(16.dp))
                 .background(
                     Brush.linearGradient(listOf(Color(0x1A3B82F6), Color(0x1A22D3EE))),
-                )
-                .padding(12.dp),
+                ).padding(12.dp),
     ) {
         Icon(icon, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(24.dp))
     }
