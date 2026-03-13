@@ -8,7 +8,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import com.google.mlkit.vision.face.Face
+import com.qualcomm.alvion.feature.home.util.FaceDiagnosticInfo
 import kotlin.math.max
 
 @Composable
@@ -17,6 +20,7 @@ fun GraphicOverlay(
     imageWidth: Int,
     imageHeight: Int,
     isFrontCamera: Boolean,
+    diagnosticInfo: FaceDiagnosticInfo? = null,
 ) {
     Canvas(modifier = Modifier.fillMaxSize()) {
         if (imageWidth <= 0 || imageHeight <= 0) return@Canvas
@@ -42,11 +46,41 @@ fun GraphicOverlay(
                 }
 
             drawRect(
-                color = Color.Red,
+                color = Color.Green,
                 topLeft = Offset(mirroredLeft, top),
                 size = Size(rectWidth, rectHeight),
                 style = Stroke(width = 2f),
             )
+
+            // Draw diagnostic info text
+            diagnosticInfo?.let { info ->
+                val paint =
+                    android.graphics.Paint().apply {
+                        color = Color.Green.toArgb()
+                        textSize = 32f
+                        isAntiAlias = true
+                        setShadowLayer(2f, 1f, 1f, Color.Black.toArgb())
+                    }
+
+                val textX = mirroredLeft
+                var textY = top - 10f
+
+                val lines =
+                    listOf(
+                        "Eye L: %.2f".format(info.leftEye),
+                        "Eye R: %.2f".format(info.rightEye),
+                        "EMA: %.2f".format(info.eyeEma),
+                        "Yaw: %.1f".format(info.yaw),
+                        "Pitch: %.1f".format(info.pitch),
+                        "Thresh: %.2f".format(info.threshold),
+                    )
+
+                // Draw from bottom to top to stay above the box
+                lines.reversed().forEach { line ->
+                    drawContext.canvas.nativeCanvas.drawText(line, textX, textY, paint)
+                    textY -= 40f
+                }
+            }
         }
     }
 }
