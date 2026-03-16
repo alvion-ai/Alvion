@@ -39,8 +39,8 @@ jobs:
         run: ./gradlew assembleDebug
 
       - name: Upload to Firebase App Distribution
-        # Trigger on push to main OR when manually triggered
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        # TEMPORARY: Changed to 'pull_request' so we can test it before merging
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
         uses: w9jds/firebase-action@master
         with:
           args: appdistribution:distribute app/build/outputs/apk/debug/app-debug.apk --app ${{ secrets.FIREBASE_APP_ID }} --groups internal-testers
