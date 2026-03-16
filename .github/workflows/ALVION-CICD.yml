@@ -5,6 +5,7 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
 
 jobs:
   lint-and-test:
@@ -38,7 +39,8 @@ jobs:
         run: ./gradlew assembleDebug
 
       - name: Upload to Firebase App Distribution
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # Trigger on push to main OR when manually triggered
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
         uses: w9jds/firebase-action@master
         with:
           args: appdistribution:distribute app/build/outputs/apk/debug/app-debug.apk --app ${{ secrets.FIREBASE_APP_ID }} --groups internal-testers
