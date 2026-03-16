@@ -1,4 +1,4 @@
-name: ALVION-CI
+name: ALVION-CICD
 
 on:
   push:
