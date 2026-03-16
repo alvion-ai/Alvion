@@ -5,13 +5,12 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
-  workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
+  workflow_dispatch:
 
 jobs:
-  lint-and-test:
+  verify:
+    name: Static Analysis & Lint
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -21,46 +20,62 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "17"
-          cache: "gradle"
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-overwrite-data: true
 
       - name: Decode Google Services JSON
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > app/google-services.json
 
-      - name: Ktlint Check
+      - name: Run Ktlint
         run: ./gradlew ktlintCheck
 
-      - name: Android Lint
+      - name: Run Android Lint
         run: ./gradlew lintDebug
+
+      - name: Upload Lint Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: app/build/reports/lint-results-debug.html
+
+  deploy:
+    name: Build & Deploy
+    needs: verify
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Decode Google Services JSON
+        run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > app/google-services.json
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
       - name: Upload to Firebase App Distribution
-        # TEMPORARY: Changed to 'pull_request' so we can test it before merging
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-        uses: w9jds/firebase-action@master
+        uses: w9jds/firebase-action@v2.2.1
         with:
           args: appdistribution:distribute app/build/outputs/apk/debug/app-debug.apk --app ${{ secrets.FIREBASE_APP_ID }} --groups internal-testers
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
 
-      - name: Upload Unit Test Reports
-        if: always()
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: unit-test-reports
-          path: |
-            **/build/reports/tests/testDebugUnitTest/**
-            **/build/test-results/testDebugUnitTest/**
-
-      - name: Upload Android Lint Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lint-reports
-          path: |
-            **/build/reports/lint-results*.xml
-            **/build/reports/lint-results-debug.html
+          name: alvion-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk

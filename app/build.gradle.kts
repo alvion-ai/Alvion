@@ -15,7 +15,7 @@ android {
         applicationId = "com.qualcomm.alvion"
         minSdk = 24
         targetSdk = 35
-        
+
         val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionCode = runNumber
         versionName = "1.0.$runNumber"
