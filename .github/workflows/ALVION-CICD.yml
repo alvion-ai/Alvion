@@ -46,7 +46,8 @@ jobs:
     name: Build & Deploy
     needs: verify
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    # Deployment logic: Only on main push (merge) OR manual trigger
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     
     steps:
       - name: Checkout Repo
