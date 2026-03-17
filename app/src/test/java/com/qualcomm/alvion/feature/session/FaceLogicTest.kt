@@ -310,7 +310,6 @@ class FaceLogicTest {
         assertEquals(1, distractedCalls.get())
     }
 
-
     @Test
     fun evaluator_ignoresTooSmallFace() {
         val drowsyCalls = AtomicInteger(0)
