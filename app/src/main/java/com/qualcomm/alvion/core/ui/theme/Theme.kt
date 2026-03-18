@@ -21,13 +21,13 @@ private val DarkColorScheme =
         primary = BluePrimaryDark,
         secondary = BlueSecondaryDark,
         tertiary = AccentOrangeDark,
-        background = Color.White,
-        surface = Color.White,
+        background = SurfaceDark,
+        surface = SurfaceDark,
         onPrimary = TextDark,
         onSecondary = TextLight,
         onTertiary = TextLight,
-        onBackground = TextDark,
-        onSurface = TextDark,
+        onBackground = TextLight,
+        onSurface = TextLight,
     )
 
 private val LightColorScheme =

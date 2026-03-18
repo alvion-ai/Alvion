@@ -3,11 +3,15 @@ package com.qualcomm.alvion.feature.home
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -36,6 +40,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.Timestamp
 import com.google.mlkit.vision.face.Face
 import com.qualcomm.alvion.R
+import com.qualcomm.alvion.core.data.SettingsRepository
 import com.qualcomm.alvion.feature.history.HistoryViewModel
 import com.qualcomm.alvion.feature.history.Trip
 import com.qualcomm.alvion.feature.history.TripAlert
@@ -45,6 +50,8 @@ import com.qualcomm.alvion.feature.home.components.GraphicOverlay
 import com.qualcomm.alvion.feature.home.util.AlertAudioManager
 import com.qualcomm.alvion.feature.home.util.FaceDetectionAnalyzer
 import com.qualcomm.alvion.feature.home.util.FaceDiagnosticInfo
+import com.qualcomm.alvion.feature.profile.SettingsViewModel
+import com.qualcomm.alvion.feature.profile.SettingsViewModelFactory
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
@@ -66,16 +73,23 @@ fun HomeTab(
     onSettings: () -> Unit,
     onSummary: () -> Unit,
     historyViewModel: HistoryViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel =
+        viewModel(
+            factory = SettingsViewModelFactory(SettingsRepository(LocalContext.current)),
+        ),
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val isDark = isSystemInDarkTheme()
 
     val primaryBlue = Color(0xFF2563EB)
     val secondaryCyan = Color(0xFF06B6D4)
-    val surfaceLight = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+    val surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.8f else 0.7f)
+
+    val alertSoundEnabled by settingsViewModel.alertSoundEnabled.collectAsState()
+    val vibrationEnabled by settingsViewModel.vibrationEnabled.collectAsState()
 
     var isSessionActive by remember { mutableStateOf(false) }
-    var soundEnabled by remember { mutableStateOf(true) }
     var faces by remember { mutableStateOf<List<Face>>(emptyList()) }
     var diagnosticInfo by remember { mutableStateOf<FaceDiagnosticInfo?>(null) }
     var warnings by remember { mutableIntStateOf(0) }
@@ -102,8 +116,23 @@ fun HomeTab(
 
     // Sound Manager
     val audioManager = remember { AlertAudioManager(context) }
+    val vibrator = remember { context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
+
     DisposableEffect(Unit) {
         onDispose { audioManager.release() }
+    }
+
+    fun triggerAlertActions(isDrowsy: Boolean) {
+        if (alertSoundEnabled) {
+            if (isDrowsy) audioManager.playDrowsyAlert() else audioManager.playDistractionAlert()
+        }
+        if (vibrationEnabled) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                vibrator.vibrate(500)
+            }
+        }
     }
 
     val faceDetectionAnalyzer =
@@ -120,7 +149,7 @@ fun HomeTab(
                         currentSessionAlerts.add(TripAlert("DROWSINESS", Timestamp.now()))
                         lastDrowsyLogTime = now
                     }
-                    if (soundEnabled) audioManager.playDrowsyAlert()
+                    triggerAlertActions(true)
                 },
                 onDistracted = {
                     if (isCalibrating) return@FaceDetectionAnalyzer
@@ -132,7 +161,7 @@ fun HomeTab(
                         currentSessionAlerts.add(TripAlert("DISTRACTION", Timestamp.now()))
                         lastDistractedLogTime = now
                     }
-                    if (soundEnabled) audioManager.playDistractionAlert()
+                    triggerAlertActions(false)
                 },
                 onImageDimensions = { width, height ->
                     imageWidth = width
@@ -154,7 +183,7 @@ fun HomeTab(
 
             if (!hasCalibratedOnce) {
                 aiMessage = AIMessage("Initial Calibration Required", MessageType.INFO)
-                showCalibrationDialog = true // Force calibration flow on first start
+                showCalibrationDialog = true
             } else {
                 aiMessage = AIMessage("System Monitoring Active", MessageType.SYSTEM)
             }
@@ -232,10 +261,9 @@ fun HomeTab(
 
                 faceDetectionAnalyzer.setCalibrationTarget(null)
                 aiMessage = AIMessage("Step ${i + 1} Done!", MessageType.SUCCESS)
-                if (soundEnabled) audioManager.playDistractionAlert()
+                if (alertSoundEnabled) audioManager.playDistractionAlert()
                 delay(1500)
             } else {
-                // Final info-only step
                 calibrationProgress = 1f
                 delay(4000)
             }
@@ -257,19 +285,21 @@ fun HomeTab(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
-        Blob(Modifier.align(Alignment.TopStart).offset((-140).dp, (-140).dp), 380.dp, Color(0x1A3B82F6))
-        Blob(Modifier.align(Alignment.BottomEnd).offset((140).dp, (140).dp), 380.dp, Color(0x1A22D3EE))
-        Blob(Modifier.align(Alignment.Center), 260.dp, Color(0x0D60A5FA))
 
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Header(primaryBlue, secondaryCyan, isSessionActive, soundEnabled) { soundEnabled = !soundEnabled }
+            Header(
+                primaryBlue,
+                secondaryCyan,
+                isSessionActive,
+                alertSoundEnabled,
+            ) { settingsViewModel.toggleAlertSound(!alertSoundEnabled) }
 
             CameraCard(
                 isSessionActive = isSessionActive,
-                surfaceLight = surfaceLight,
+                surfaceColor = surfaceColor,
                 primaryBlue = primaryBlue,
                 secondaryCyan = secondaryCyan,
                 faceDetectionAnalyzer = faceDetectionAnalyzer,
@@ -345,7 +375,7 @@ private fun Header(
 @Composable
 private fun CameraCard(
     isSessionActive: Boolean,
-    surfaceLight: Color,
+    surfaceColor: Color,
     primaryBlue: Color,
     secondaryCyan: Color,
     faceDetectionAnalyzer: FaceDetectionAnalyzer,
@@ -372,7 +402,7 @@ private fun CameraCard(
                 shape = RoundedCornerShape(24.dp),
             ),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = surfaceLight),
+        colors = CardDefaults.cardColors(containerColor = surfaceColor),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Box(
@@ -382,7 +412,13 @@ private fun CameraCard(
                         .height(if (isSessionActive) 470.dp else 220.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(
-                            if (isSessionActive) MaterialTheme.colorScheme.surfaceVariant.copy(0.3f) else Color.White.copy(0.1f),
+                            if (isSessionActive) {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(
+                                    0.3f,
+                                )
+                            } else {
+                                MaterialTheme.colorScheme.onSurface.copy(0.05f)
+                            },
                         ),
             ) {
                 if (isSessionActive) {
@@ -416,7 +452,12 @@ private fun CameraCard(
                         ) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(24.dp).background(Color.White, RoundedCornerShape(16.dp)).padding(20.dp),
+                                modifier =
+                                    Modifier
+                                        .padding(
+                                            24.dp,
+                                        ).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                                        .padding(20.dp),
                             ) {
                                 Text("Step $calibrationStep of 4", style = MaterialTheme.typography.labelLarge, color = primaryBlue)
                                 Spacer(Modifier.height(8.dp))
@@ -512,7 +553,7 @@ private fun CalibrationDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(28.dp),
         title = {
             Text("Face Calibration", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = primaryBlue)
@@ -522,7 +563,7 @@ private fun CalibrationDialog(
                 Text(
                     "To ensure maximum safety, Alvion needs to learn your features in 3 quick positions.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = primaryBlue.copy(0.7f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 )
                 listOf(
                     "Look straight forward",
@@ -545,7 +586,6 @@ private fun CalibrationDialog(
                             step,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
-                            color = primaryBlue.copy(0.9f),
                         )
                     }
                 }
@@ -553,7 +593,7 @@ private fun CalibrationDialog(
                 Text(
                     "Note: You can recalibrate any time using the Eye icon if you adjust your seat.",
                     style = MaterialTheme.typography.labelSmall,
-                    color = primaryBlue.copy(0.6f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
             }
         },
@@ -614,15 +654,6 @@ private fun MetricsGrid(
 }
 
 @Composable
-private fun Blob(
-    modifier: Modifier,
-    size: Dp,
-    color: Color,
-) {
-    Box(modifier = modifier.size(size).blur(80.dp).background(color, CircleShape))
-}
-
-@Composable
 private fun LogoSpotlight(logoSize: Dp) {
     val infiniteTransition = rememberInfiniteTransition()
     val glowScale by infiniteTransition.animateFloat(
@@ -676,11 +707,15 @@ fun EmergencyCardModern(
     onCall: () -> Unit,
     modifier: Modifier,
 ) {
+    val isDark = isSystemInDarkTheme()
     Card(
         onClick = onCall,
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2).copy(0.9f)),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = if (isDark) Color(0xFF450A0A).copy(0.9f) else Color(0xFFFEF2F2).copy(0.9f),
+            ),
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
