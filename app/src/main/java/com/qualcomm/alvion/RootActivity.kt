@@ -5,10 +5,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
+import com.qualcomm.alvion.core.data.SettingsRepository
 import com.qualcomm.alvion.core.ui.theme.ALVIONTheme
 import com.qualcomm.alvion.feature.auth.LoginScreen
 import com.qualcomm.alvion.feature.intro.IntroScreen
@@ -19,7 +24,11 @@ class RootActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            ALVIONTheme {
+            val context = LocalContext.current
+            val settingsRepository = remember { SettingsRepository(context) }
+            val isDarkMode by settingsRepository.darkModeFlow.collectAsState(initial = false)
+
+            ALVIONTheme(darkTheme = isDarkMode) {
                 AppNav()
             }
         }
