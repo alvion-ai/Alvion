@@ -126,7 +126,7 @@
 \chapter{Abstract}
 \textit{ALVION} is an Android application that detects signs of driver drowsiness and distraction using the phone’s front-facing camera and on-device computer vision. Many new vehicles include driver-monitoring features, but millions of older cars do not. Our goal is to help close that gap with a low-cost, widely accessible solution that can run on everyday Android devices and provide timely safety alerts during real driving.
 In addition to being a prototype safety application, ALVION serves as a practical testbed to evaluate the real-world capability of Qualcomm-enabled mobile AI for this use case. We focus on whether mobile vision models and on-device acceleration are strong and stable enough to support driver-monitoring signals under realistic conditions (lighting changes, head movement, brief tracking loss, and different mounting angles). These findings help inform what is feasible today on commodity smartphones and what improvements are needed for more robust edge-based driver safety systems.
-The system analyzes live video to extract visual cues related to fatigue and inattention, applies configurable thresholds and time-based logic, and triggers clear alerts through sound, on-screen prompts, and vibration when attention appears to drift. While core detection runs on-device for low latency, the application also includes standard product features such as user authentication (e.g., Firebase) to support a realistic app workflow. We do not attempt vehicle integration, cloud-based video processing, large-scale deployment, or regulatory certification.
+The system analyzes live video to extract visual cues related to fatigue and inattention, applies configurable thresholds and time-based logic, and triggers clear alerts through sound, on-screen prompts, and vibration when attention appears to drift. While core detection runs on-device for low latency, the application also includes standard product features such as user authentication (e.g., Firebase [3]) to support a realistic app workflow. We do not attempt vehicle integration, cloud-based video processing, large-scale deployment, or regulatory certification.
 This document outlines the project’s objectives, assumptions, and boundaries so developers, mentors, and faculty can stay aligned as the system evolves from concept to implementation. It describes the architecture, component responsibilities, and design decisions with an emphasis on building something practical within an academic timeline and extensible for future teams.
 
 % ========================= DOC INFO =========================
@@ -197,7 +197,7 @@ Improving driver safety requires early detection of distraction and drowsiness i
 
 \begin{itemize}
     \item \textbf{Safety:} The system should protect both the driver and other road users by recognizing behavioral cues such as prolonged eyelid closure, yawning, or abnormal head pose patterns that precede dangerous inattention.
-    \item \textbf{Privacy-Aware Design:} Drivers are wary of surveillance systems that upload facial video to the cloud. ALVION is designed to keep \emph{core detection and inference on-device} and avoid transmitting raw camera footage, while still supporting standard app functionality such as user authentication (e.g., Firebase).
+    \item \textbf{Privacy-Aware Design:} Drivers are wary of surveillance systems that upload facial video to the cloud. ALVION is designed to keep \emph{core detection and inference on-device} and avoid transmitting raw camera footage, while still supporting standard app functionality such as user authentication (e.g., Firebase [3]).
     \item \textbf{Accessibility and Cost:} Full-scale automotive integrations are expensive. By leveraging common smartphone hardware, ALVION provides a low-cost entry point that can benefit drivers in older vehicles.
     \item \textbf{Responsiveness:} Alerts must reach the driver when they matter most. Real-time analysis enables immediate feedback that can help prevent incidents instead of only documenting them.
     \item \textbf{Reusability and Scalability:} The project serves as a reference implementation that can be adapted, expanded, and optimized by future teams, supporting continuous improvement in mobile AI safety systems and evaluation of mobile AI model capability.
@@ -240,11 +240,11 @@ Through these objectives, ALVION demonstrates a concrete pathway from concept to
 
     \item[Jetpack Compose] Android’s declarative UI framework written in Kotlin. It simplifies the creation of reactive, adaptive user interfaces without the need for XML layout files.
 
-    \item[CameraX] A Jetpack library that provides easy access to camera functions such as preview, capture, and frame analysis. Used in ALVION to stream frames for real-time inference.
+    \item[CameraX [2]] A Jetpack library that provides easy access to camera functions such as preview, capture, and frame analysis. Used in ALVION to stream frames for real-time inference.
 
-    \item[ML Kit Face Detection] Google’s on-device machine learning SDK used in ALVION to provide real-time eye-openness probabilities and head pose (Euler angles) without requiring a custom-trained model.
+    \item[ML Kit Face Detection [1]] Google’s on-device machine learning SDK used in ALVION to provide real-time eye-openness probabilities and head pose (Euler angles) without requiring a custom-trained model.
 
-    \item[Firebase Authentication] A cloud-based service used to manage user identity and secure login flows within the application.
+    \item[Firebase Authentication [3]] A cloud-based service used to manage user identity and secure login flows within the application.
 
     \item[Calibration Buckets] Specific data collections (e.g., "forward", "left", "right") used during the setup phase to establish baseline eye-openness and head-pose values for an individual driver.
 
@@ -284,9 +284,9 @@ This section describes the primary user groups who interact with ALVION today, a
 \noindent
 The context diagram illustrates how the ALVION mobile application interacts with its surrounding environment.
 The driver provides a live camera feed through the smartphone’s front-facing camera and receives real-time alerts through audio, vibration, and visual cues.
-The application communicates with the Android OS using standard APIs for camera access, permissions, audio output, vibration, and local storage.
-Core detection is performed on-device using a mobile face-detection pipeline (e.g., ML Kit) to estimate signals such as eye openness and head pose for time-based alerting.
-The system may also integrate cloud-backed application features such as authentication (e.g., Firebase) to support a realistic app workflow.
+The application communicates with the Android OS using standard APIs for camera access [2], permissions, audio output, vibration, and local storage.
+Core detection is performed on-device using a mobile face-detection pipeline (e.g., ML Kit [1]) to estimate signals such as eye openness and head pose for time-based alerting.
+The system may also integrate cloud-backed application features such as authentication (e.g., Firebase [3]) to support a realistic app workflow.
 Optional connections shown in the diagram (e.g., aggregated summaries or managed configuration) represent potential future extensions rather than required MVP functionality.
 
 \subsection{Functional Requirements}
@@ -334,10 +334,10 @@ This section provides short descriptions of the user functional requirements ide
 \begin{enumerate}
 
     \item \textbf{UF-A: Account Management} —
-    The system shall allow drivers to create an account and securely log in using Firebase Authentication to manage personal session history and preferences.
+    The system shall allow drivers to create an account and securely log in using Firebase Authentication [3] to manage personal session history and preferences.
 
     \item \textbf{UF-B: Drowsiness Detection and Alerting} —
-    The system shall continuously analyze eye openness using the PERCLOS metric and issue a warning when sustained eyelid closure (exceeding a defined millisecond threshold) indicates drowsiness. (Supported by Use Cases UC-001 and UC-002.)
+    The system shall continuously analyze eye openness using the PERCLOS metric [4] and issue a warning when sustained eyelid closure (exceeding a defined millisecond threshold) indicates drowsiness. (Supported by Use Cases UC-001 and UC-002.)
 
     \item \textbf{UF-C: Distraction Detection and Alerting} —
     The system shall detect when the driver’s head yaw deviates from the calibrated forward baseline for longer than a defined interval and trigger an attention-restoring alert. (Supported by Use Case UC-010.)
@@ -346,7 +346,7 @@ This section provides short descriptions of the user functional requirements ide
     The system shall provide a settings interface that allows the driver to adjust detection sensitivity, alert volume, and the "cooldown" period between consecutive alerts. (Supported by Use Case UC-004.)
 
     \item \textbf{UF-E: Start and Stop Monitoring Session} —
-    The driver shall be able to manually start and end a monitoring session, which handles the lifecycle of the CameraX stream and the ML Kit inference pipeline. (Supported by Use Case UC-001.)
+    The driver shall be able to manually start and end a monitoring session, which handles the lifecycle of the CameraX stream [2] and the ML Kit inference pipeline [1]. (Supported by Use Case UC-001.)
 
     \item \textbf{UF-F: Real-Time Alert Delivery} —
     The system shall deliver immediate visual, audio, and haptic (vibration) feedback when drowsiness or distraction is detected to ensure driver response. (Supported by Use Cases UC-002 and UC-010.)
@@ -377,7 +377,7 @@ The ALVION system shall implement the following core functional features to enab
 
 \begin{itemize}
     \item \textbf{SF-01: Real-Time Drowsiness Detection} —
-    The system shall utilize the ML Kit Face Detection API to analyze eye-openness probabilities. Using the PERCLOS metric, it shall trigger an alert when eyelid closure exceeds a defined duration (default 1800ms).
+    The system shall utilize the ML Kit Face Detection API [1] to analyze eye-openness probabilities. Using the PERCLOS metric [4], it shall trigger an alert when eyelid closure exceeds a defined duration (default 1800ms).
 
     \item \textbf{SF-02: Distraction Detection} —
     The system shall track head yaw (horizontal rotation) and issue a distraction alert if the driver's head deviates from the calibrated forward baseline beyond a threshold for a set duration.
@@ -386,7 +386,7 @@ The ALVION system shall implement the following core functional features to enab
     The system shall deliver synchronous alerts using audio tones, haptic vibration, and visual UI overlays to ensure the driver is promptly notified of safety risks.
 
     \item \textbf{SF-04: Account and History Management} —
-    The system shall provide a secure login interface via Firebase Authentication, allowing drivers to maintain personal session statistics and persistent device configurations.
+    The system shall provide a secure login interface via Firebase Authentication [3], allowing drivers to maintain personal session statistics and persistent device configurations.
 
     \item \textbf{SF-05: Dynamic Calibration and Mirror Logic} —
     The system shall establish a forward-facing baseline during setup. It shall include "Mirror Symmetry" logic to automatically infer detection thresholds for side-viewing angles based on partial user calibration.
@@ -395,7 +395,7 @@ The ALVION system shall implement the following core functional features to enab
     The system shall allow the driver to adjust eye-closure sensitivity, head-pose thresholds, and the "alert cooldown" period via a dedicated Settings interface.
 
     \item \textbf{SF-07: Session Control and Lifecycle} —
-    The application shall allow users to manually start and stop monitoring, correctly managing the Android CameraX lifecycle and ML inference pipeline.
+    The application shall allow users to manually start and stop monitoring, correctly managing the Android CameraX lifecycle [2] and ML inference pipeline [1].
 
     \item \textbf{SF-08: Snooze and Acknowledge Logic} —
     The system shall provide interactive UI elements to acknowledge or temporarily snooze active alerts, preventing repetitive notifications once the driver has regained focus.
@@ -413,9 +413,9 @@ The ALVION application manages data related to user identity, real-time facial a
 
 \paragraph{Data Inputs}
 \begin{itemize}
-    \item \textbf{User Authentication Data:} Email and password credentials provided during login/signup, managed via Firebase Authentication.
-    \item \textbf{Live Camera Feed:} RGB frames captured via CameraX, used exclusively for real-time inference and never stored.
-    \item \textbf{Facial Landmark Metrics:} Raw probability scores (eye-openness) and Euler angles (head rotation) provided by the ML Kit Face Detection API.
+    \item \textbf{User Authentication Data:} Email and password credentials provided during login/signup, managed via Firebase Authentication [3].
+    \item \textbf{Live Camera Feed:} RGB frames captured via CameraX [2], used exclusively for real-time inference and never stored.
+    \item \textbf{Facial Landmark Metrics:} Raw probability scores (eye-openness) and Euler angles (head rotation) provided by the ML Kit Face Detection API [1].
 \end{itemize}
 
 \paragraph{Data Processing and Storage}
@@ -484,15 +484,15 @@ We are building a phone-first prototype that runs entirely on the device. To ens
 \textbf{Why we use it.} It allows us to build responsive, high-performance UI overlays (e.g., the camera preview and alert badges) that react instantly to changes in the driver's attention state without the overhead of XML-based layouts.
 
 \subsection{Camera: CameraX (Preview + Analysis)}
-\textbf{What it is.} A Jetpack library that simplifies camera integration.
+\textbf{What it is.} A Jetpack library [2] that simplifies camera integration.
 \textbf{Why we use it.} CameraX allows us to split the camera feed into two paths: a low-latency preview for the user and a continuous "Analysis" stream of image proxies. It handles device rotation and lifecycle management automatically, ensuring the app doesn't crash when backgrounded.
 
 \subsection{Inference: ML Kit Face Detection}
-\textbf{What it is.} An on-device Qualcomm SDK for vision tasks.
+\textbf{What it is.} An on-device Qualcomm SDK [1] for vision tasks.
 \textbf{Why we use it.} ML Kit provides a pre-trained, highly optimized pipeline for facial landmarking. It returns the exact metrics needed for our safety logic—specifically eye-openness probabilities and head Euler angles (yaw)—without the need for custom model training or hosting.
 
 \subsection{Backend: Firebase Authentication}
-\textbf{What it is.} A secure cloud-based identity platform.
+\textbf{What it is.} A secure cloud-based identity platform [3].
 \textbf{Why we use it.} To support personal session history and persistent user settings, we utilize Firebase for secure login and account management, ensuring that driver profiles are protected and easily accessible.
 
 \subsection{Project Glue: Coroutines and Flow}
@@ -537,7 +537,7 @@ A core innovation of the system is the multi-angle calibration routine, which es
 The detection engine processes the calibrated data using two parallel logic paths for Drowsiness and Distraction.
 
 \paragraph{Drowsiness (Sustained Eye Closure):}
-The system implements a \textbf{PERCLOS Proxy} (Percentage of Eyelid Closure) using a duration-based trigger.
+The system implements a \textbf{PERCLOS Proxy [4]} (Percentage of Eyelid Closure) using a duration-based trigger.
 \begin{enumerate}
     \item \textbf{EMA Smoothing:} Raw eye-openness scores from ML Kit are processed using an \textit{Exponential Moving Average} ($\alpha = 0.45$) to filter out momentary blinks and sensor noise.
     \item \textbf{Dynamic Thresholding:} Instead of a fixed 0.5 threshold, the system uses the eye-openness stats gathered during calibration to set a custom "closed" threshold for each driver.
@@ -611,7 +611,7 @@ The ALVION system is organized using the \textbf{Model-View-Controller (MVC)} pa
 
 \begin{itemize}
     \item \textbf{Views (Jetpack Compose):} These include the \texttt{Authentication}, \texttt{Home/Preview}, and \texttt{Settings} screens. They are responsible for rendering the live camera feed, displaying visual alert overlays, and capturing user input for calibration.
-    \item \textbf{Controllers (Analysis Pipeline):} The \texttt{FaceDetectionAnalyzer} acts as the primary controller. It coordinates the data flow between the \textbf{CameraX} frame stream and the \textbf{ML Kit} inference engine. It ensures that frames are processed asynchronously to maintain a responsive UI.
+    \item \textbf{Controllers (Analysis Pipeline):} The \texttt{FaceDetectionAnalyzer} acts as the primary controller. It coordinates the data flow between the \textbf{CameraX [2]} frame stream and the \textbf{ML Kit [1]} inference engine. It ensures that frames are processed asynchronously to maintain a responsive UI.
     \item \textbf{Model (Safety Engine):} The \texttt{FaceStateEvaluator} serves as the core "brain" of the system. It maintains the internal state of the driver (Normal, Drowsy, or Distracted). It stores the \textbf{Calibration Baselines} (Yaw and Eye thresholds) and applies heuristic rules—such as the Mirror Symmetry logic and EMA smoothing—to trigger alerts.
 \end{itemize}
 
@@ -805,9 +805,9 @@ Our prototype is built using a modern Android stack, prioritizing on-device perf
 \begin{itemize}
     \item \textbf{Android Studio \& Kotlin:} The primary development environment and language. We utilize Kotlin's high-order functions for event callbacks (\texttt{onDrowsy}, \texttt{onDistracted}).
     \item \textbf{Jetpack Compose:} Used for the entire UI layer, including the \texttt{GraphicOverlay} that renders real-time tracking feedback.
-    \item \textbf{CameraX (ImageAnalysis):} Provides the \texttt{Analysis} stream. We implement the \texttt{ImageAnalysis.Analyzer} interface to process frames asynchronously.
-    \item \textbf{ML Kit Face Detection:} Our core vision engine. It is configured in \texttt{PERFORMANCE\_MODE\_ACCURATE} to ensure reliable eye-openness and Euler angle extraction.
-    \item \textbf{Firebase Authentication:} Handles user identity and secure access to the application's monitoring features.
+    \item \textbf{CameraX (ImageAnalysis) [2]:} Provides the \texttt{Analysis} stream. We implement the \texttt{ImageAnalysis.Analyzer} interface to process frames asynchronously.
+    \item \textbf{ML Kit Face Detection [1]:} Our core vision engine. It is configured in \texttt{PERFORMANCE\_MODE\_ACCURATE} to ensure reliable eye-openness and Euler angle extraction.
+    \item \textbf{Firebase Authentication [3]:} Handles user identity and secure access to the application's monitoring features.
 \end{itemize}
 
 % ---------- 7.2 Coding Conventions ----------
@@ -1163,11 +1163,13 @@ We thank \textbf{Qualcomm} and the ALVION-AI organization for the resources and 
 \chapter{References}
 
 \begin{enumerate}
-    \item Google Developers. (2024). \textit{ML Kit Face Detection Guide}. Retrieved from https://developers.google.com/ml-kit/vision/face-detection.
-    \item Android Developers. (2024). \textit{CameraX Analysis and Lifecycle}. Retrieved from https://developer.android.com/media/camera/camerax.
-    \item Firebase Documentation. (2024). \textit{Firestore and Auth for Android}. Retrieved from https://firebase.google.com/docs/android/setup.
-    \item Dinges, D. F. \& Grace, R. (1998). \textit{PERCLOS: A Valid Psychophysiological Measure of Alertness}. FHWA Technical Brief.
+    \item \label{google2024mlkit} Google Developers. (2024). \textit{ML Kit Face Detection Guide}. Retrieved from https://developers.google.com/ml-kit/vision/face-detection.
+    \item \label{android2024camerax} Android Developers. (2024). \textit{CameraX Analysis and Lifecycle}. Retrieved from https://developer.android.com/media/camera/camerax.
+    \item \label{firebase2024docs} Firebase Documentation. (2024). \textit{Firestore and Auth for Android}. Retrieved from https://firebase.google.com/docs/android/setup.
+    \item \label{dinges1998perclos} Dinges, D. F. \& Grace, R. (1998). \textit{PERCLOS: A Valid Psychophysiological Measure of Alertness}. FHWA Technical Brief. Retrieved from https://rosap.ntl.bts.gov/view/dot/113
 \end{enumerate}
+
+
 
 \section*{Appendix R: Requirements}
 \addcontentsline{toc}{section}{Appendix R: Requirements}
