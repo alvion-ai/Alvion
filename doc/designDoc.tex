@@ -867,13 +867,18 @@ The project follows standard Android/Kotlin guidelines with a focus on \textbf{C
 
 % ---------- 7.5 Consistency of Code Implementation ----------
 \section{Consistency of Code Implementation}\label{sec:patterns-consistency}
-The implementation adheres to the \textbf{MVC} pattern as defined in the architectural design:
 
-\begin{itemize}
-    \item \textbf{Model:} \texttt{FaceStateEvaluator} and \texttt{RunningStats} classes. They maintain the mathematical state and baseline averages.
-    \item \textbf{View:} \texttt{CameraPreviewBox} and \texttt{GraphicOverlay}. They render the state provided by the controller.
-    \item \textbf{Controller:} \texttt{FaceDetectionAnalyzer}. It orchestrates the flow from CameraX $\rightarrow$ ML Kit $\rightarrow$ Evaluator.
-\end{itemize}
+The ALVION implementation remains consistent with the \textbf{Model--View--Controller (MVC)} architecture described in Section~6 by maintaining a clear separation between presentation, coordination, and safety-decision logic. This separation is reflected both in the structural organization of components and in the runtime flow of the real-time monitoring pipeline.
+
+The \textbf{View} layer is implemented through \textbf{Jetpack Compose} screens, including the \texttt{HomeTab} interface and monitoring overlays, which are responsible for rendering detection status, calibration feedback, and alert notifications. These components handle user interaction and visual presentation, but they do not perform vision inference or safety evaluation. This preserves a clean boundary between the user interface and the system's underlying decision-making logic.
+
+The \textbf{Controller} layer is realized by the \texttt{FaceDetectionAnalyzer}, which coordinates \textbf{CameraX} frame acquisition, invokes the face-detection processor, and forwards landmark data to the safety logic. It also manages event propagation back to the UI through structured callbacks posted to the main thread, ensuring responsive updates without embedding domain logic directly into the presentation layer.
+
+The \textbf{Model} layer is represented by the \texttt{FaceStateEvaluator} and associated utility classes, which encapsulate calibration baselines, temporal smoothing variables, and threshold-based decision rules for drowsiness and distraction detection. By isolating this stateful safety logic from both UI rendering and hardware coordination, the implementation preserves determinism, modularity, and testability.
+
+Supporting design patterns further reinforce this MVC structure. The analyzer operates as a \textbf{Facade} over the underlying \textbf{CameraX} and \textbf{ML Kit} subsystems, while the \texttt{FaceProcessor} abstraction enables a \textbf{Strategy} pattern for interchangeable inference backends. Callback-based event delivery provides an \textbf{Observer}-style interaction between the controller and the UI, and centralized configuration access aligns with the repository-oriented approach described in the structural design.
+
+At runtime, camera frames flow from \textbf{CameraX} through the analyzer to the evaluator, where calibrated thresholds and temporal logic determine driver-state transitions. Alert events are then routed back through the controller and rendered by the UI. This execution path directly reflects the sequence and state-machine designs presented earlier, demonstrating that the implemented system behavior remains consistent with the documented architecture.
 
 % ---------- 7.6 Analysis of Key Algorithms ----------
 \section{Analysis of Key Algorithms}\label{sec:key-algorithms}
