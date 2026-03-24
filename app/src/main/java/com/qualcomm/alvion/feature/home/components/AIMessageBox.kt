@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -28,13 +29,19 @@ import com.qualcomm.alvion.feature.home.MessageType
 fun AIMessageBox(
     message: AIMessage?,
     modifier: Modifier = Modifier,
+    /** Rotate banner 180° so it reads correctly when the device is physically upside down. */
+    invertForUpsideDownReading: Boolean = false,
 ) {
     val primaryBlue = Color(0xFF2563EB)
 
     Crossfade(
         targetState = message,
         animationSpec = tween(500),
-        modifier = modifier,
+        modifier =
+            modifier.graphicsLayer {
+                rotationZ = if (invertForUpsideDownReading) 180f else 0f
+                clip = false
+            },
     ) { msg ->
         val (containerColor, contentColor, icon, borderStroke) =
             when (msg?.type) {
