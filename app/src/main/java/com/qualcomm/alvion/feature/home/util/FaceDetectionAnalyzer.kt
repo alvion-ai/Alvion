@@ -7,6 +7,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
+import com.google.mlkit.vision.face.FaceLandmark
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -22,6 +23,7 @@ data class FaceDiagnosticInfo(
     val pitch: Float,
     val threshold: Float,
     val eyeEma: Float,
+    val isEyeOccluded: Boolean,
 )
 
 /**
@@ -34,6 +36,9 @@ class FaceDetectionAnalyzer(
     private val onImageDimensions: (width: Int, height: Int) -> Unit,
     private val onDiagnosticInfo: (FaceDiagnosticInfo?) -> Unit = {},
     private val onFaceTooClose: (Boolean) -> Unit = {},
+    private val onEyeOccluded: (Boolean) -> Unit = {},
+    private val onOcclusionStateChanged: (Boolean) -> Unit = {},
+    private val onPresenceCheck: () -> Unit = {},
     private val detector: FaceProcessor = MlKitFaceProcessor(),
     mainThreadPoster: MainThreadPoster = AndroidMainThreadPoster(),
 ) : ImageAnalysis.Analyzer {
@@ -42,6 +47,11 @@ class FaceDetectionAnalyzer(
             onDrowsy = onDrowsy,
             onDistracted = onDistracted,
             onFaceTooClose = onFaceTooClose,
+            onEyeOccluded = { occluded ->
+                onEyeOccluded(occluded)
+                onOcclusionStateChanged(occluded)
+            },
+            onPresenceCheck = onPresenceCheck,
             mainThreadPoster = mainThreadPoster,
         )
 
@@ -102,19 +112,27 @@ object ImageSizeCalculator {
 class FaceStateEvaluator(
     private val onDrowsy: () -> Unit,
     private val onDistracted: () -> Unit,
-    private val onFaceTooClose: (Boolean) -> Unit,
+    private val onFaceTooClose: (Boolean) -> Unit = {},
+    private val onEyeOccluded: (Boolean) -> Unit = {},
+    private val onPresenceCheck: () -> Unit = {},
     private val mainThreadPoster: MainThreadPoster = AndroidMainThreadPoster(),
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) {
     private val FACE_AREA_THRESHOLD = 0.60f
     private val DROWSY_TRIGGER_MS = 1800L
-    private val DISTRACTION_MIRROR_MS = 6000L // Reduced from 8000L per user request
-    private val DISTRACTION_BEYOND_MS = 3000L // Reduced from 4000L per user request
+    private val DISTRACTION_MIRROR_MS = 6000L
+    private val DISTRACTION_BEYOND_MS = 3000L
     private val CALLBACK_COOLDOWN_MS = 3000L
-    private val GRACE_MS = 400L
+    private val GRACE_MS = 600L
     private val EMA_ALPHA = 0.45f
     private val MIN_FACE_SIZE_FRAC = 0.15f
     private val DISTRACTION_HYSTERESIS_DEG = 8f
+    private val OCCLUSION_TIMEOUT_MS = 3000L
+    private val PRESENCE_CHECK_MS = 10000L
+    private val MOTION_BUFFER_SIZE = 5
+    // Thresholds tuned for "static photo" detection. A real human typically jitters more than this.
+    private val CENTER_X_VARIANCE_EPS = 0.25f // ~within ~1px range
+    private val ROT_Y_VARIANCE_EPS = 0.04f // ~within ~0.4deg range
 
     @Volatile
     var monitoringEnabled = false
@@ -133,6 +151,15 @@ class FaceStateEvaluator(
     private var lastDistractionCallbackTime = 0L
     private var isFaceTooClose = false
 
+    // Occlusion and Motion state
+    private var occlusionStartTime: Long? = null
+    private var isEyeOccluded = false
+    private val centerXBuffer = ArrayDeque<Int>(MOTION_BUFFER_SIZE)
+    private val rotYBuffer = ArrayDeque<Float>(MOTION_BUFFER_SIZE)
+    private var presenceStaticStartTime: Long? = null
+    private var hasFiredPresenceCheck = false
+    private var lastPresenceCallbackTime = 0L
+
     private val bucketYawMeans = mutableMapOf<String, Float>()
     private val closedThresholdByBucket = mutableMapOf<String, Float>()
     private val openEyeStatsByBucket =
@@ -148,12 +175,13 @@ class FaceStateEvaluator(
         val threshold = closedThresholdByBucket[bucket] ?: 0.40f
 
         return FaceDiagnosticInfo(
-            leftEye = face.leftEyeOpenProbability ?: 0f,
-            rightEye = face.rightEyeOpenProbability ?: 0f,
+            leftEye = face.leftEyeOpenProbability ?: -1f,
+            rightEye = face.rightEyeOpenProbability ?: -1f,
             yaw = face.headEulerAngleY,
             pitch = face.headEulerAngleX,
             threshold = threshold,
             eyeEma = eyeScoreEma ?: 0f,
+            isEyeOccluded = isEyeOccluded,
         )
     }
 
@@ -216,6 +244,13 @@ class FaceStateEvaluator(
         hasFiredDrowsyForThisClosure = false
         lastDrowsyCallbackTime = 0L
         lastDistractionCallbackTime = 0L
+        occlusionStartTime = null
+        isEyeOccluded = false
+        centerXBuffer.clear()
+        rotYBuffer.clear()
+        presenceStaticStartTime = null
+        hasFiredPresenceCheck = false
+        lastPresenceCallbackTime = 0L
         openEyeStatsByBucket.values.forEach { it.reset() }
     }
 
@@ -257,9 +292,6 @@ class FaceStateEvaluator(
         val rotX = primaryFace.headEulerAngleX
         val rotZ = primaryFace.headEulerAngleZ
 
-        // Calibration Baseline Logic Fix:
-        // When forward calibration starts, ensure we anchor to the CURRENT head pose
-        // rather than defaulting to 0 (camera-center).
         if (isCalibrating && calibrationTargetBucket == "forward") {
             val stats = openEyeStatsByBucket["forward"]
             calibrationForwardBaseline = if (stats != null && stats.count > 0) stats.yawMean() else rotY
@@ -284,21 +316,87 @@ class FaceStateEvaluator(
         }
 
         lastValidMetricsTime = now
-        val left = primaryFace.leftEyeOpenProbability
-        val right = primaryFace.rightEyeOpenProbability
+        val leftProb = primaryFace.leftEyeOpenProbability
+        val rightProb = primaryFace.rightEyeOpenProbability
+        val bothEyeProbsNull = leftProb == null && rightProb == null
+        val leftLandmark = primaryFace.getLandmark(FaceLandmark.LEFT_EYE)
+        val rightLandmark = primaryFace.getLandmark(FaceLandmark.RIGHT_EYE)
 
-        if (left != null || right != null) {
+        // UNIVERSAL OCCLUSION LOGIC:
+        // ML Kit often returns null eye-open probabilities when sunglasses/obstacles block the eyes.
+        if (bothEyeProbsNull) {
+            if (occlusionStartTime == null) occlusionStartTime = now
+            if (now - occlusionStartTime!! >= OCCLUSION_TIMEOUT_MS && !isEyeOccluded) {
+                isEyeOccluded = true
+                mainThreadPoster.post { onEyeOccluded(true) }
+            }
+        } else {
+            occlusionStartTime = null
+            if (isEyeOccluded) {
+                isEyeOccluded = false
+                mainThreadPoster.post { onEyeOccluded(false) }
+            }
+        }
+
+        val currentCenterX = faceBox.centerX()
+        // Motion detection (Presence check)
+        centerXBuffer.addLast(currentCenterX)
+        rotYBuffer.addLast(rotY)
+        while (centerXBuffer.size > MOTION_BUFFER_SIZE) centerXBuffer.removeFirst()
+        while (rotYBuffer.size > MOTION_BUFFER_SIZE) rotYBuffer.removeFirst()
+
+        if (monitoringEnabled && isEyeOccluded) {
+            val isStaticNow =
+                if (centerXBuffer.size == MOTION_BUFFER_SIZE && rotYBuffer.size == MOTION_BUFFER_SIZE) {
+                    val cx = centerXBuffer.map { it.toFloat() }
+                    val ry = rotYBuffer.toList()
+
+                    fun variance(samples: List<Float>): Float {
+                        val mean = samples.sum() / samples.size
+                        var acc = 0f
+                        for (sample in samples) {
+                            val delta = sample - mean
+                            acc += delta * delta
+                        }
+                        return acc / samples.size
+                    }
+
+                    variance(cx) <= CENTER_X_VARIANCE_EPS && variance(ry) <= ROT_Y_VARIANCE_EPS
+                } else {
+                    false
+                }
+
+            if (isStaticNow) {
+                if (presenceStaticStartTime == null) presenceStaticStartTime = now
+                if (
+                    now - presenceStaticStartTime!! >= PRESENCE_CHECK_MS &&
+                        !hasFiredPresenceCheck &&
+                        now - lastPresenceCallbackTime >= CALLBACK_COOLDOWN_MS
+                ) {
+                    hasFiredPresenceCheck = true
+                    lastPresenceCallbackTime = now
+                    mainThreadPoster.post(onPresenceCheck)
+                }
+            } else {
+                presenceStaticStartTime = null
+                hasFiredPresenceCheck = false
+            }
+        } else {
+            presenceStaticStartTime = null
+            hasFiredPresenceCheck = false
+        }
+
+        // Process Eye Score for Drowsiness
+        if (leftProb != null || rightProb != null) {
             val penalty =
                 (if (abs(rotZ) > 30f) 0.15f else 0f) +
                     (if (abs(rotX) > 20f) 0.10f else 0f) +
                     (if (yawAbs > 25f) 0.10f else 0f)
 
-            val rawScore =
-                when {
-                    left != null && right != null -> min(left, right)
-                    left != null -> left
-                    else -> right!!
-                }
+            val leftScore = leftProb ?: if (leftLandmark != null) 0.05f else 1f
+            val rightScore = rightProb ?: if (rightLandmark != null) 0.05f else 1f
+            
+            val rawScore = min(leftScore, rightScore)
 
             val currentScore = (rawScore - penalty).coerceIn(0f, 1f)
             eyeScoreEma =
@@ -314,7 +412,7 @@ class FaceStateEvaluator(
 
             val isPoseCorrect =
                 when (target) {
-                    "forward" -> abs(yawDelta) < 12f // Relaxed to make it easier to start
+                    "forward" -> abs(yawDelta) < 12f
                     "left" -> yawDelta > 6f
                     "right" -> yawDelta < -6f
                     else -> false
@@ -329,8 +427,6 @@ class FaceStateEvaluator(
                 if (distractionStartTime == null) distractionStartTime = now
                 val maxMirrorYawAbs = max(abs(bucketYawMeans["left"] ?: 0f), abs(bucketYawMeans["right"] ?: 0f))
                 val mirrorThreshold = if (maxMirrorYawAbs > 0) maxMirrorYawAbs + 10f else 45f
-
-                // Mirror checking allows up to 6s. Looking beyond that allows only 3s.
                 val triggerMs = if (yawAbs <= mirrorThreshold) DISTRACTION_MIRROR_MS else DISTRACTION_BEYOND_MS
 
                 if (now - distractionStartTime!! >= triggerMs) {
@@ -343,22 +439,27 @@ class FaceStateEvaluator(
                 distractionStartTime = null
             }
 
-            eyeScoreEma?.let { score ->
-                val bucket = bucketYawMeans.minByOrNull { abs(it.value - yawDelta) }?.key ?: "forward"
-                val threshold = closedThresholdByBucket[bucket] ?: 0.40f
+            // Pause eye-state drowsiness checks as soon as both eye-open probabilities disappear,
+            // even before we confirm occlusion (3s). This prevents sunglasses from producing
+            // false "drowsy" detections due to stale eyeScoreEma.
+            if (!isEyeOccluded && !bothEyeProbsNull) {
+                eyeScoreEma?.let { score ->
+                    val bucket = bucketYawMeans.minByOrNull { abs(it.value - yawDelta) }?.key ?: "forward"
+                    val threshold = closedThresholdByBucket[bucket] ?: 0.40f
 
-                if (score < threshold) {
-                    if (eyeClosedStartTime == null) eyeClosedStartTime = now
-                    if (now - eyeClosedStartTime!! >= DROWSY_TRIGGER_MS && !hasFiredDrowsyForThisClosure) {
-                        if (now - lastDrowsyCallbackTime >= CALLBACK_COOLDOWN_MS) {
-                            lastDrowsyCallbackTime = now
-                            mainThreadPoster.post(onDrowsy)
-                            hasFiredDrowsyForThisClosure = true
+                    if (score < threshold) {
+                        if (eyeClosedStartTime == null) eyeClosedStartTime = now
+                        if (now - eyeClosedStartTime!! >= DROWSY_TRIGGER_MS && !hasFiredDrowsyForThisClosure) {
+                            if (now - lastDrowsyCallbackTime >= CALLBACK_COOLDOWN_MS) {
+                                lastDrowsyCallbackTime = now
+                                mainThreadPoster.post(onDrowsy)
+                                hasFiredDrowsyForThisClosure = true
+                            }
                         }
+                    } else {
+                        eyeClosedStartTime = null
+                        hasFiredDrowsyForThisClosure = false
                     }
-                } else {
-                    eyeClosedStartTime = null
-                    hasFiredDrowsyForThisClosure = false
                 }
             }
         }
@@ -370,6 +471,15 @@ class FaceStateEvaluator(
             eyeClosedStartTime = null
             distractionStartTime = null
             hasFiredDrowsyForThisClosure = false
+            occlusionStartTime = null
+            if (isEyeOccluded) {
+                isEyeOccluded = false
+                mainThreadPoster.post { onEyeOccluded(false) }
+            }
+            centerXBuffer.clear()
+            rotYBuffer.clear()
+            presenceStaticStartTime = null
+            hasFiredPresenceCheck = false
         }
     }
 
@@ -419,6 +529,7 @@ class MlKitFaceProcessor : FaceProcessor {
                 .Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
                 .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
                 .build(),
         )
 
