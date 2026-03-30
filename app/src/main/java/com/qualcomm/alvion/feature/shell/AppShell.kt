@@ -14,7 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qualcomm.alvion.feature.history.HistoryScreen
 import com.qualcomm.alvion.feature.history.HistoryViewModel
 import com.qualcomm.alvion.feature.home.HomeTab
-import com.qualcomm.alvion.feature.profile.ProfileTab
+import com.qualcomm.alvion.feature.profile.ProfileScreen
 
 @Composable
 fun AppShell(
@@ -65,7 +65,7 @@ fun AppShell(
             when (selectedTab) {
                 0 -> HomeTab(onSettings, onSummary, historyViewModel)
                 1 -> HistoryScreen(historyViewModel)
-                2 -> ProfileTab(onSignOut)
+                2 -> ProfileScreen(onSignOut = onSignOut)
             }
         }
     }
