@@ -45,8 +45,10 @@ fun GraphicOverlay(
                     left
                 }
 
+            val boxColor = if (diagnosticInfo?.isEyeOccluded == true) Color.Yellow else Color.Green
+
             drawRect(
-                color = Color.Green,
+                color = boxColor,
                 topLeft = Offset(mirroredLeft, top),
                 size = Size(rectWidth, rectHeight),
                 style = Stroke(width = 2f),
@@ -56,7 +58,7 @@ fun GraphicOverlay(
             diagnosticInfo?.let { info ->
                 val paint =
                     android.graphics.Paint().apply {
-                        color = Color.Green.toArgb()
+                        color = (if (info.isEyeOccluded) Color.Yellow else Color.Green).toArgb()
                         textSize = 32f
                         isAntiAlias = true
                         setShadowLayer(2f, 1f, 1f, Color.Black.toArgb())
@@ -65,18 +67,32 @@ fun GraphicOverlay(
                 val textX = mirroredLeft
                 var textY = top - 10f
 
-                val lines =
-                    listOf(
-                        "Eye L: %.2f".format(info.leftEye),
-                        "Eye R: %.2f".format(info.rightEye),
-                        "EMA: %.2f".format(info.eyeEma),
-                        "Yaw: %.1f".format(info.yaw),
-                        "Pitch: %.1f".format(info.pitch),
-                        "Thresh: %.2f".format(info.threshold),
-                    )
+                val lines = mutableListOf<String>()
+                
+                if (info.isEyeOccluded) {
+                    lines.add("!!! EYES OCCLUDED !!!")
+                }
+                
+                lines.addAll(listOf(
+                    "Eye L: %.2f".format(info.leftEye),
+                    "Eye R: %.2f".format(info.rightEye),
+                    "EMA: %.2f".format(info.eyeEma),
+                    "Yaw: %.1f".format(info.yaw),
+                    "Pitch: %.1f".format(info.pitch),
+                    "Thresh: %.2f".format(info.threshold),
+                ))
 
                 // Draw from bottom to top to stay above the box
                 lines.reversed().forEach { line ->
+                    // Make occlusion warning red
+                    if (line.contains("OCCLUDED")) {
+                        paint.color = Color.Red.toArgb()
+                        paint.isFakeBoldText = true
+                    } else {
+                        paint.color = (if (info.isEyeOccluded) Color.Yellow else Color.Green).toArgb()
+                        paint.isFakeBoldText = false
+                    }
+                    
                     drawContext.canvas.nativeCanvas.drawText(line, textX, textY, paint)
                     textY -= 40f
                 }

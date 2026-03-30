@@ -29,6 +29,7 @@ class FaceLogicTest {
         rotY: Float = 0f,
         rotX: Float = 0f,
         rotZ: Float = 0f,
+        centerX: Int = 500,
         width: Int = 200,
         height: Int = 200,
     ): Face {
@@ -42,7 +43,9 @@ class FaceLogicTest {
         val rect = mockk<android.graphics.Rect>()
         every { rect.width() } returns width
         every { rect.height() } returns height
+        every { rect.centerX() } returns centerX
         every { f.boundingBox } returns rect
+        every { f.getLandmark(any()) } returns null
 
         return f
     }
@@ -527,5 +530,61 @@ class FaceLogicTest {
 
         assertEquals(0, drowsyCalls.get())
         assertEquals(0, distractedCalls.get())
+    }
+
+    @Test
+    fun evaluator_eyeOcclusion_triggersOnlyAfter3SecondsOfNullProbabilities() {
+        val occlusionEvents = mutableListOf<Boolean>()
+        val evaluator =
+            FaceStateEvaluator(
+                onDrowsy = {},
+                onDistracted = {},
+                onEyeOccluded = { occlusionEvents.add(it) },
+                mainThreadPoster = immediatePoster,
+                clock = { currentTime },
+            )
+
+        evaluator.monitoringEnabled = true
+        val occludedFace = face(leftEye = null, rightEye = null)
+
+        evaluator.evaluate(listOf(occludedFace), 1000, 1000)
+        currentTime += 2900
+        evaluator.evaluate(listOf(occludedFace), 1000, 1000)
+        assertTrue(occlusionEvents.isEmpty())
+
+        currentTime += 200
+        evaluator.evaluate(listOf(occludedFace), 1000, 1000)
+        assertEquals(listOf(true), occlusionEvents)
+
+        currentTime += 50
+        evaluator.evaluate(listOf(face(leftEye = 0.9f, rightEye = 0.9f)), 1000, 1000)
+        assertEquals(listOf(true, false), occlusionEvents)
+    }
+
+    @Test
+    fun evaluator_presenceCheck_triggersAfter10SecondsStaticWhileOccluded() {
+        val presenceCalls = AtomicInteger(0)
+        val evaluator =
+            FaceStateEvaluator(
+                onDrowsy = {},
+                onDistracted = {},
+                onPresenceCheck = { presenceCalls.incrementAndGet() },
+                mainThreadPoster = immediatePoster,
+                clock = { currentTime },
+            )
+
+        evaluator.monitoringEnabled = true
+        val occludedStaticFace = face(leftEye = null, rightEye = null, rotY = 0f, centerX = 500)
+
+        evaluator.evaluate(listOf(occludedStaticFace), 1000, 1000)
+        currentTime += 3000
+        evaluator.evaluate(listOf(occludedStaticFace), 1000, 1000) // occlusion confirmed
+
+        repeat(10) {
+            currentTime += 1000
+            evaluator.evaluate(listOf(occludedStaticFace), 1000, 1000)
+        }
+
+        assertEquals(1, presenceCalls.get())
     }
 }

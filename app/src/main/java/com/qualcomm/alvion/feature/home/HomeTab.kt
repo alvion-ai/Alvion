@@ -50,11 +50,35 @@ import com.qualcomm.alvion.feature.home.components.GraphicOverlay
 import com.qualcomm.alvion.feature.home.util.AlertAudioManager
 import com.qualcomm.alvion.feature.home.util.FaceDetectionAnalyzer
 import com.qualcomm.alvion.feature.home.util.FaceDiagnosticInfo
+import com.qualcomm.alvion.feature.home.util.rememberPhoneUpsideDown
 import com.qualcomm.alvion.feature.profile.SettingsViewModel
 import com.qualcomm.alvion.feature.profile.SettingsViewModelFactory
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
+
+/** Shown while the device is physically inverted; kept until rotation corrects (no auto-dismiss). */
+private const val PHONE_UPSIDE_DOWN_UI_MESSAGE =
+    "Phone is upside down. Flip the device for correct monitoring."
+
+/**
+ * Reduces flicker from noisy sensors / display rotation: require sustained readings before
+ * flipping UI state.
+ */
+@Composable
+private fun rememberDebouncedUpsideDown(rawUpsideDown: Boolean): Boolean {
+    var debounced by remember { mutableStateOf(false) }
+    LaunchedEffect(rawUpsideDown) {
+        if (rawUpsideDown) {
+            delay(250)
+            if (rawUpsideDown) debounced = true
+        } else {
+            delay(750)
+            if (!rawUpsideDown) debounced = false
+        }
+    }
+    return debounced
+}
 
 enum class MessageType {
     INFO, // Blue: Instructions / Calibration
@@ -98,12 +122,15 @@ fun HomeTab(
     var aiMessage by remember { mutableStateOf<AIMessage?>(null) }
     var imageWidth by remember { mutableIntStateOf(0) }
     var imageHeight by remember { mutableIntStateOf(0) }
+    var isEyeOccluded by remember { mutableStateOf(false) }
 
     // --- History Tracking State ---
     var sessionStartTime by remember { mutableStateOf<Timestamp?>(null) }
     val currentSessionAlerts = remember { mutableStateListOf<TripAlert>() }
     var lastDrowsyLogTime by remember { mutableLongStateOf(0L) }
     var lastDistractedLogTime by remember { mutableLongStateOf(0L) }
+    var lastPresenceLogTime by remember { mutableLongStateOf(0L) }
+    var lastUpsideDownLogTime by remember { mutableLongStateOf(0L) }
     val COOLDOWN_MS = 30_000L
 
     // Calibration UI state
@@ -121,6 +148,10 @@ fun HomeTab(
     DisposableEffect(Unit) {
         onDispose { audioManager.release() }
     }
+
+    val phoneUpsideDown = rememberPhoneUpsideDown(isSessionActive && !isCalibrating)
+    val debouncedUpsideDown = rememberDebouncedUpsideDown(phoneUpsideDown)
+    var wasDebouncedUpsideDown by remember { mutableStateOf(false) }
 
     fun triggerAlertActions(isDrowsy: Boolean) {
         if (alertSoundEnabled) {
@@ -170,6 +201,32 @@ fun HomeTab(
                 onDiagnosticInfo = { info ->
                     diagnosticInfo = info
                 },
+                onEyeOccluded = { occluded ->
+                    isEyeOccluded = occluded
+                    if (occluded && isSessionActive && !isCalibrating) {
+                        if (aiMessage?.text != PHONE_UPSIDE_DOWN_UI_MESSAGE) {
+                            aiMessage =
+                                AIMessage(
+                                    "Eyes not visible. Drowsiness detection paused. Monitoring head movement.",
+                                    MessageType.INFO,
+                                )
+                        }
+                    } else if (!occluded && aiMessage?.text?.contains("not visible") == true) {
+                        aiMessage = AIMessage("System Monitoring Active", MessageType.SYSTEM)
+                    }
+                },
+                onPresenceCheck = {
+                    if (!isSessionActive || isCalibrating) return@FaceDetectionAnalyzer
+
+                    val now = System.currentTimeMillis()
+                    if (now - lastPresenceLogTime < COOLDOWN_MS) return@FaceDetectionAnalyzer
+
+                    aiMessage = AIMessage("Presence Check: move your head to confirm you are a real person.", MessageType.WARNING)
+
+                    currentSessionAlerts.add(TripAlert("PRESENCE_CHECK", Timestamp.now()))
+                    lastPresenceLogTime = now
+                    triggerAlertActions(false)
+                },
             )
         }
 
@@ -180,6 +237,9 @@ fun HomeTab(
             currentSessionAlerts.clear()
             lastDrowsyLogTime = 0L
             lastDistractedLogTime = 0L
+            lastPresenceLogTime = 0L
+            lastUpsideDownLogTime = 0L
+            wasDebouncedUpsideDown = false
 
             if (!hasCalibratedOnce) {
                 aiMessage = AIMessage("Initial Calibration Required", MessageType.INFO)
@@ -208,14 +268,55 @@ fun HomeTab(
             aiMessage = null
             sessionStartTime = null
             diagnosticInfo = null
+            isEyeOccluded = false
+        }
+    }
+
+    LaunchedEffect(debouncedUpsideDown, isSessionActive, isCalibrating) {
+        if (!isSessionActive) {
+            wasDebouncedUpsideDown = false
+            return@LaunchedEffect
+        }
+        if (isCalibrating) {
+            return@LaunchedEffect
+        }
+        if (!debouncedUpsideDown) {
+            if (wasDebouncedUpsideDown) {
+                wasDebouncedUpsideDown = false
+                if (aiMessage?.text == PHONE_UPSIDE_DOWN_UI_MESSAGE) {
+                    aiMessage = AIMessage("System Monitoring Active", MessageType.SYSTEM)
+                }
+            }
+            return@LaunchedEffect
+        }
+
+        val firstEnter = !wasDebouncedUpsideDown
+        if (firstEnter) {
+            wasDebouncedUpsideDown = true
+            val now = System.currentTimeMillis()
+            warnings += 1
+            aiMessage = AIMessage(PHONE_UPSIDE_DOWN_UI_MESSAGE, MessageType.WARNING)
+            if (now - lastUpsideDownLogTime > COOLDOWN_MS) {
+                currentSessionAlerts.add(TripAlert("PHONE_UPSIDE_DOWN", Timestamp.now()))
+                lastUpsideDownLogTime = now
+            }
+            triggerAlertActions(false)
+        }
+
+        while (true) {
+            delay(250)
+            if (aiMessage?.text != PHONE_UPSIDE_DOWN_UI_MESSAGE) {
+                aiMessage = AIMessage(PHONE_UPSIDE_DOWN_UI_MESSAGE, MessageType.WARNING)
+            }
         }
     }
 
     LaunchedEffect(aiMessage) {
-        if (aiMessage != null && !isCalibrating && aiMessage?.type == MessageType.WARNING) {
-            delay(5000)
-            aiMessage = AIMessage("System Monitoring Active", MessageType.SYSTEM)
-        }
+        val msg = aiMessage ?: return@LaunchedEffect
+        if (isCalibrating || msg.type != MessageType.WARNING) return@LaunchedEffect
+        if (msg.text == PHONE_UPSIDE_DOWN_UI_MESSAGE) return@LaunchedEffect
+        delay(5000)
+        aiMessage = AIMessage("System Monitoring Active", MessageType.SYSTEM)
     }
 
     LaunchedEffect(isCalibrating) {
@@ -317,6 +418,7 @@ fun HomeTab(
                 calibrationProgress = calibrationProgress,
                 waitingForUserToStartStep = waitingForUserToStartStep,
                 onStartStep = { waitingForUserToStartStep = false },
+                debouncedUpsideDown = debouncedUpsideDown,
             )
 
             MetricsGrid(warnings, elapsedSeconds, speedKmh, context, primaryBlue)
@@ -393,6 +495,7 @@ private fun CameraCard(
     calibrationProgress: Float,
     waitingForUserToStartStep: Boolean,
     onStartStep: () -> Unit,
+    debouncedUpsideDown: Boolean,
 ) {
     Card(
         modifier =
@@ -495,7 +598,13 @@ private fun CameraCard(
                 }
             }
             if (!isCalibrating) {
-                ActionArea(isSessionActive, primaryBlue, onStartSession, aiMessage)
+                ActionArea(
+                    isSessionActive = isSessionActive,
+                    primaryBlue = primaryBlue,
+                    onStartSession = onStartSession,
+                    aiMessage = aiMessage,
+                    invertMessageForUpsideDown = debouncedUpsideDown,
+                )
             }
         }
     }
@@ -526,6 +635,7 @@ private fun ActionArea(
     primaryBlue: Color,
     onStartSession: () -> Unit,
     aiMessage: AIMessage?,
+    invertMessageForUpsideDown: Boolean,
 ) {
     if (!isSessionActive) {
         Button(
@@ -539,8 +649,16 @@ private fun ActionArea(
             Text("Start Trip", fontWeight = FontWeight.Bold, color = Color.White)
         }
     } else {
-        Box(modifier = Modifier.fillMaxWidth().height(100.dp)) {
-            AIMessageBox(aiMessage)
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(if (invertMessageForUpsideDown) 128.dp else 100.dp),
+        ) {
+            AIMessageBox(
+                message = aiMessage,
+                invertForUpsideDownReading = invertMessageForUpsideDown,
+            )
         }
     }
 }
