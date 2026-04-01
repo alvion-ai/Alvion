@@ -227,8 +227,13 @@ fun HomeTab(
                     lastPresenceLogTime = now
                     triggerAlertActions(false)
                 },
+                context = context,
             )
         }
+
+    DisposableEffect(faceDetectionAnalyzer) {
+        onDispose { faceDetectionAnalyzer.evaluator.cleanup() }
+    }
 
     LaunchedEffect(isSessionActive) {
         if (isSessionActive) {
