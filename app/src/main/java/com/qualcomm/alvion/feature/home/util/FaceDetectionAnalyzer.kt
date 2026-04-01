@@ -1,5 +1,6 @@
 package com.qualcomm.alvion.feature.home.util
 
+import android.util.Log
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.google.android.gms.tasks.Task
@@ -39,6 +40,7 @@ class FaceDetectionAnalyzer(
     private val onEyeOccluded: (Boolean) -> Unit = {},
     private val onOcclusionStateChanged: (Boolean) -> Unit = {},
     private val onPresenceCheck: () -> Unit = {},
+    private val context: android.content.Context,  // For TFLite model loading
     private val detector: FaceProcessor = MlKitFaceProcessor(),
     mainThreadPoster: MainThreadPoster = AndroidMainThreadPoster(),
 ) : ImageAnalysis.Analyzer {
@@ -53,6 +55,7 @@ class FaceDetectionAnalyzer(
             },
             onPresenceCheck = onPresenceCheck,
             mainThreadPoster = mainThreadPoster,
+            context = context,
         )
 
     fun setMonitoringEnabled(enabled: Boolean) {
@@ -83,7 +86,7 @@ class FaceDetectionAnalyzer(
             .process(image)
             .addOnSuccessListener { faces ->
                 onFacesDetected(faces)
-                evaluator.evaluate(faces, width, height)
+                evaluator.evaluate(faces, width, height, imageProxy)
 
                 val primaryFace = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 if (primaryFace != null) {
@@ -117,7 +120,15 @@ class FaceStateEvaluator(
     private val onPresenceCheck: () -> Unit = {},
     private val mainThreadPoster: MainThreadPoster = AndroidMainThreadPoster(),
     private val clock: () -> Long = { System.currentTimeMillis() },
+    private val context: android.content.Context,  // For TFLite model loading
 ) {
+    private val TAG = "FaceStateEvaluator"
+    
+    // ===== TFLite Sunglasses Classifier =====
+    private val sunglassesClassifier = SunglassesClassifier(context)
+    private var frameCounter = 0
+    private val INFERENCE_INTERVAL = 3  // Run inference every 3 frames
+    
     private val FACE_AREA_THRESHOLD = 0.60f
     private val DROWSY_TRIGGER_MS = 1800L
     private val DISTRACTION_MIRROR_MS = 6000L
@@ -148,6 +159,10 @@ class FaceStateEvaluator(
     private var lastValidMetricsTime = 0L
     private var hasFiredDrowsyForThisClosure = false
     private var lastDrowsyCallbackTime = 0L
+    
+    // Sunglasses detection state
+    private var sunglassesDetected = false
+    private var lastSunglassesDetectionTime = 0L
     private var lastDistractionCallbackTime = 0L
     private var isFaceTooClose = false
 
@@ -252,12 +267,29 @@ class FaceStateEvaluator(
         hasFiredPresenceCheck = false
         lastPresenceCallbackTime = 0L
         openEyeStatsByBucket.values.forEach { it.reset() }
+        
+        // Reset sunglasses state
+        sunglassesDetected = false
+        frameCounter = 0
+    }
+    
+    /**
+     * Clean up resources (call when activity destroys).
+     */
+    fun cleanup() {
+        try {
+            sunglassesClassifier.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing sunglasses classifier: ${e.message}")
+        }
     }
 
     fun evaluate(
         faces: List<Face>,
         width: Int,
         height: Int,
+        @androidx.camera.core.ExperimentalGetImage
+        imageProxy: ImageProxy,
     ) {
         val now = clock()
         val primaryFace = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
@@ -322,8 +354,69 @@ class FaceStateEvaluator(
         val leftLandmark = primaryFace.getLandmark(FaceLandmark.LEFT_EYE)
         val rightLandmark = primaryFace.getLandmark(FaceLandmark.RIGHT_EYE)
 
-        // UNIVERSAL OCCLUSION LOGIC:
-        // ML Kit often returns null eye-open probabilities when sunglasses/obstacles block the eyes.
+        // ===== TFLITE SUNGLASSES DETECTION =====
+        // Run every 3 frames for performance (frame skipping)
+        frameCounter++
+        SunglassesDebugHelper.logFrameProcessing(frameCounter, frameCounter % INFERENCE_INTERVAL == 0)
+        
+        if (frameCounter % INFERENCE_INTERVAL == 0) {
+            try {
+                val faceBitmap = FaceCropper.cropFaceFromFrame(imageProxy, primaryFace)
+                if (faceBitmap != null) {
+                    val classificationResult = sunglassesClassifier.classify(faceBitmap)
+                    
+                    if (classificationResult.error == null) {
+                        // Update sunglasses detection state
+                        if (classificationResult.hasSunglasses != sunglassesDetected) {
+                            sunglassesDetected = classificationResult.hasSunglasses
+                            lastSunglassesDetectionTime = now
+                            
+                            SunglassesDebugHelper.logStateChange(
+                                sunglassesDetected,
+                                "confidence=${"%.3f".format(classificationResult.confidence)}"
+                            )
+                            
+                            if (sunglassesDetected) {
+                                Log.d(TAG, "🕶️ SUNGLASSES DETECTED: ${classificationResult.confidence}")
+                                println("[ALVION] 🕶️ SUNGLASSES DETECTED: confidence=${"%.2f".format(classificationResult.confidence)}")
+                                mainThreadPoster.post { onEyeOccluded(true) }
+                                
+                                // Reset drowsiness tracking when sunglasses detected
+                                eyeClosedStartTime = null
+                                hasFiredDrowsyForThisClosure = false
+                            } else {
+                                Log.d(TAG, "👁️ SUNGLASSES REMOVED: ${classificationResult.confidence}")
+                                println("[ALVION] 👁️ SUNGLASSES REMOVED: confidence=${"%.2f".format(classificationResult.confidence)}")
+                                mainThreadPoster.post { onEyeOccluded(false) }
+                            }
+                        }
+                    } else {
+                        Log.w(TAG, "Classification error: ${classificationResult.error}")
+                        SunglassesDebugHelper.logError("Classification failed: ${classificationResult.error}")
+                    }
+                    
+                    faceBitmap.recycle()
+                } else {
+                    SunglassesDebugHelper.logImageExtraction(false)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "TFLite inference error: ${e.message}")
+                SunglassesDebugHelper.logError("Inference exception", e)
+            }
+        }
+
+        // If sunglasses detected, suppress drowsiness detection
+        if (sunglassesDetected) {
+            Log.d(TAG, "Drowsiness detection suppressed (sunglasses detected)")
+            SunglassesDebugHelper.logPipelineStatus(
+                modelLoaded = true,
+                faceDetected = true,
+                inferenceRan = frameCounter % INFERENCE_INTERVAL == 0,
+                sunglassesDetected = true
+            )
+        } else {
+            // Proceed with normal drowsiness detection
+        }
         if (bothEyeProbsNull) {
             if (occlusionStartTime == null) occlusionStartTime = now
             if (now - occlusionStartTime!! >= OCCLUSION_TIMEOUT_MS && !isEyeOccluded) {
