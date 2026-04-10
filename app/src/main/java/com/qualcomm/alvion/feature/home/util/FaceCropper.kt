@@ -1,6 +1,7 @@
 package com.qualcomm.alvion.feature.home.util
 
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.media.Image
 import android.util.Log
 import androidx.camera.core.ExperimentalGetImage
@@ -25,22 +26,39 @@ object FaceCropper {
     fun cropFaceFromFrame(
         imageProxy: ImageProxy,
         face: Face
+    ): Bitmap? = cropFaceFromFrame(imageProxy, face.boundingBox)
+
+    /**
+     * Crop face region from camera frame as RGB Bitmap.
+     *
+     * @param imageProxy Camera frame
+     * @param boundingBox ML Kit face bounding box
+     * @return Cropped RGB bitmap, or null if extraction fails
+     */
+    @ExperimentalGetImage
+    fun cropFaceFromFrame(
+        imageProxy: ImageProxy,
+        boundingBox: Rect
     ): Bitmap? {
         return try {
             val mediaImage = imageProxy.image ?: return null
-            
-            // Get face bounding box
-            val boundingBox = face.boundingBox
+            val imageBoundingBox =
+                mapBoundingBoxToImageCoordinates(
+                    boundingBox = boundingBox,
+                    rotationDegrees = imageProxy.imageInfo.rotationDegrees,
+                    imageWidth = mediaImage.width,
+                    imageHeight = mediaImage.height,
+                )
             
             // Add padding (10%) for better context
             val padding = 0.1f
-            val paddedLeft = (boundingBox.left - boundingBox.width() * padding)
+            val paddedLeft = (imageBoundingBox.left - imageBoundingBox.width() * padding)
                 .toInt().coerceIn(0, mediaImage.width - 1)
-            val paddedTop = (boundingBox.top - boundingBox.height() * padding)
+            val paddedTop = (imageBoundingBox.top - imageBoundingBox.height() * padding)
                 .toInt().coerceIn(0, mediaImage.height - 1)
-            val paddedRight = (boundingBox.right + boundingBox.width() * padding)
+            val paddedRight = (imageBoundingBox.right + imageBoundingBox.width() * padding)
                 .toInt().coerceIn(0, mediaImage.width)
-            val paddedBottom = (boundingBox.bottom + boundingBox.height() * padding)
+            val paddedBottom = (imageBoundingBox.bottom + imageBoundingBox.height() * padding)
                 .toInt().coerceIn(0, mediaImage.height)
             
             val cropWidth = (paddedRight - paddedLeft).coerceAtLeast(1)
@@ -56,10 +74,53 @@ object FaceCropper {
             null
         }
     }
+
+    private fun mapBoundingBoxToImageCoordinates(
+        boundingBox: Rect,
+        rotationDegrees: Int,
+        imageWidth: Int,
+        imageHeight: Int
+    ): Rect =
+        when (rotationDegrees) {
+            90 ->
+                Rect(
+                    boundingBox.top,
+                    imageHeight - boundingBox.right,
+                    boundingBox.bottom,
+                    imageHeight - boundingBox.left,
+                )
+            180 ->
+                Rect(
+                    imageWidth - boundingBox.right,
+                    imageHeight - boundingBox.bottom,
+                    imageWidth - boundingBox.left,
+                    imageHeight - boundingBox.top,
+                )
+            270 ->
+                Rect(
+                    imageWidth - boundingBox.bottom,
+                    boundingBox.left,
+                    imageWidth - boundingBox.top,
+                    boundingBox.right,
+                )
+            else -> Rect(boundingBox)
+        }.let { mapped ->
+            val left = minOf(mapped.left, mapped.right).coerceIn(0, imageWidth - 1)
+            val right = maxOf(mapped.left, mapped.right).coerceIn(1, imageWidth)
+            val top = minOf(mapped.top, mapped.bottom).coerceIn(0, imageHeight - 1)
+            val bottom = maxOf(mapped.top, mapped.bottom).coerceIn(1, imageHeight)
+
+            Rect(
+                left,
+                top,
+                right.coerceAtLeast(left + 1),
+                bottom.coerceAtLeast(top + 1),
+            )
+        }
     
     /**
-     * Convert YUV NV21 frame to RGB Bitmap.
-     * Handles standard Android camera YUV format.
+     * Convert a YUV_420_888 frame region to RGB Bitmap.
+     * Handles row and pixel strides from Android camera planes.
      */
     @androidx.camera.core.ExperimentalGetImage
     private fun yuvToRgb(
@@ -76,7 +137,11 @@ object FaceCropper {
             val vPlane = planes[2]
             
             val yPixelStride = yPlane.pixelStride
-            val uvPixelStride = uPlane.pixelStride
+            val yRowStride = yPlane.rowStride
+            val uPixelStride = uPlane.pixelStride
+            val uRowStride = uPlane.rowStride
+            val vPixelStride = vPlane.pixelStride
+            val vRowStride = vPlane.rowStride
             
             val yBuffer = yPlane.buffer
             val uBuffer = uPlane.buffer
@@ -116,7 +181,7 @@ object FaceCropper {
                     }
                     
                     // Get Y value
-                    val yIndex = frameY * yPixelStride + frameX
+                    val yIndex = frameY * yRowStride + frameX * yPixelStride
                     if (yIndex >= yData.size) {
                         pixels[pixelIndex++] = 0xFF000000.toInt()
                         continue
@@ -124,18 +189,19 @@ object FaceCropper {
                     
                     val yVal = yData[yIndex].toInt() and 0xFF
                     
-                    // Get U and V values (they're interleaved in NV21)
+                    // Get U and V values from the YUV_420_888 chroma planes.
                     val uvFrameX = frameX / 2
                     val uvFrameY = frameY / 2
-                    val uvIndex = uvFrameY * uvPixelStride + uvFrameX * 2
+                    val uIndex = uvFrameY * uRowStride + uvFrameX * uPixelStride
+                    val vIndex = uvFrameY * vRowStride + uvFrameX * vPixelStride
                     
-                    if (uvIndex + 1 >= uData.size) {
+                    if (uIndex >= uData.size || vIndex >= vData.size) {
                         pixels[pixelIndex++] = 0xFF000000.toInt()
                         continue
                     }
                     
-                    val uVal = (uData[uvIndex].toInt() and 0xFF) - 128
-                    val vVal = (vData[uvIndex].toInt() and 0xFF) - 128
+                    val uVal = (uData[uIndex].toInt() and 0xFF) - 128
+                    val vVal = (vData[vIndex].toInt() and 0xFF) - 128
                     
                     // YUV to RGB conversion
                     val r = (yVal + 1.402f * vVal).toInt().coerceIn(0, 255)
@@ -158,8 +224,4 @@ object FaceCropper {
         }
     }
 }
-
-
-
-
 
