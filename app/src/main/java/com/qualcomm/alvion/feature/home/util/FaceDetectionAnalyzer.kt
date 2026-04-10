@@ -1,5 +1,7 @@
 package com.qualcomm.alvion.feature.home.util
 
+import android.content.Context
+import android.graphics.Rect
 import android.util.Log
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -40,7 +42,7 @@ class FaceDetectionAnalyzer(
     private val onEyeOccluded: (Boolean) -> Unit = {},
     private val onOcclusionStateChanged: (Boolean) -> Unit = {},
     private val onPresenceCheck: () -> Unit = {},
-    private val context: android.content.Context,  // For TFLite model loading
+    private val context: Context,  // For TFLite model loading
     private val detector: FaceProcessor = MlKitFaceProcessor(),
     mainThreadPoster: MainThreadPoster = AndroidMainThreadPoster(),
 ) : ImageAnalysis.Analyzer {
@@ -79,6 +81,12 @@ class FaceDetectionAnalyzer(
 
         val (width, height) = ImageSizeCalculator.compute(rotation, imageProxy.width, imageProxy.height)
         onImageDimensions(width, height)
+
+        if (evaluator.shouldUseSunglassesOnlyFrame()) {
+            evaluator.evaluateSunglassesOnlyFrame(imageProxy, width, height)
+            imageProxy.close()
+            return
+        }
 
         val image = InputImage.fromMediaImage(mediaImage, rotation)
 
@@ -120,19 +128,24 @@ class FaceStateEvaluator(
     private val onPresenceCheck: () -> Unit = {},
     private val mainThreadPoster: MainThreadPoster = AndroidMainThreadPoster(),
     private val clock: () -> Long = { System.currentTimeMillis() },
-    private val context: android.content.Context,  // For TFLite model loading
+    private val context: Context? = null,  // For TFLite model loading
+    private val sunglassesClassifier: SunglassesClassifier? = context?.let { SunglassesClassifier(it) },
 ) {
     private val TAG = "FaceStateEvaluator"
     
     // ===== TFLite Sunglasses Classifier =====
-    private val sunglassesClassifier = SunglassesClassifier(context)
     private var frameCounter = 0
     private val INFERENCE_INTERVAL = 3  // Run inference every 3 frames
+    private val SUNGLASSES_DETECT_THRESHOLD = 0.70f
+    private val SUNGLASSES_CLEAR_THRESHOLD = 0.45f
+    private val SUNGLASSES_CONFIRMATION_FRAMES = 2
+    private val SUNGLASSES_MLKIT_REFRESH_MS = 1200L
+    private val SUNGLASSES_ONLY_INFERENCE_MS = 300L
     
     private val FACE_AREA_THRESHOLD = 0.60f
-    private val DROWSY_TRIGGER_MS = 1800L
-    private val DISTRACTION_MIRROR_MS = 6000L
-    private val DISTRACTION_BEYOND_MS = 3000L
+    private val DROWSY_TRIGGER_MS = 1200L
+    private val DISTRACTION_MIRROR_MS = 4000L
+    private val DISTRACTION_BEYOND_MS = 2000L
     private val CALLBACK_COOLDOWN_MS = 3000L
     private val GRACE_MS = 600L
     private val EMA_ALPHA = 0.45f
@@ -163,6 +176,11 @@ class FaceStateEvaluator(
     // Sunglasses detection state
     private var sunglassesDetected = false
     private var lastSunglassesDetectionTime = 0L
+    private var lastSunglassesInferenceTime = 0L
+    private var lastMlKitFrameTime = 0L
+    private var sunglassesHitStreak = 0
+    private var sunglassesClearStreak = 0
+    private var cachedFaceBox: Rect? = null
     private var lastDistractionCallbackTime = 0L
     private var isFaceTooClose = false
 
@@ -271,6 +289,12 @@ class FaceStateEvaluator(
         // Reset sunglasses state
         sunglassesDetected = false
         frameCounter = 0
+        lastSunglassesDetectionTime = 0L
+        lastSunglassesInferenceTime = 0L
+        lastMlKitFrameTime = 0L
+        sunglassesHitStreak = 0
+        sunglassesClearStreak = 0
+        cachedFaceBox = null
     }
     
     /**
@@ -278,10 +302,44 @@ class FaceStateEvaluator(
      */
     fun cleanup() {
         try {
-            sunglassesClassifier.close()
+            sunglassesClassifier?.close()
         } catch (e: Exception) {
             Log.e(TAG, "Error closing sunglasses classifier: ${e.message}")
         }
+    }
+
+    fun shouldUseSunglassesOnlyFrame(): Boolean {
+        val now = clock()
+        return monitoringEnabled &&
+            sunglassesDetected &&
+            cachedFaceBox != null &&
+            now - lastMlKitFrameTime < SUNGLASSES_MLKIT_REFRESH_MS
+    }
+
+    @androidx.camera.core.ExperimentalGetImage
+    fun evaluateSunglassesOnlyFrame(
+        imageProxy: ImageProxy,
+        width: Int,
+        height: Int,
+    ) {
+        val now = clock()
+        if (!sunglassesDetected) return
+
+        cachedFaceBox?.let { faceBox ->
+            runSunglassesInferenceIfDue(
+                imageProxy = imageProxy,
+                faceBox = faceBox,
+                now = now,
+                force = false,
+            )
+        }
+
+        resetMlKitSafetyTrackingForSunglasses()
+        if (!isEyeOccluded) {
+            isEyeOccluded = true
+            mainThreadPoster.post { onEyeOccluded(true) }
+        }
+        Log.d(TAG, "ML Kit skipped for sunglasses-only frame (${width}x$height)")
     }
 
     fun evaluate(
@@ -289,12 +347,14 @@ class FaceStateEvaluator(
         width: Int,
         height: Int,
         @androidx.camera.core.ExperimentalGetImage
-        imageProxy: ImageProxy,
+        imageProxy: ImageProxy? = null,
     ) {
         val now = clock()
+        lastMlKitFrameTime = now
         val primaryFace = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
 
         if (primaryFace == null) {
+            cachedFaceBox = null
             handleInvalidFrame(now)
             if (isFaceTooClose) {
                 isFaceTooClose = false
@@ -302,6 +362,8 @@ class FaceStateEvaluator(
             }
             return
         }
+
+        cachedFaceBox = Rect(primaryFace.boundingBox)
 
         val faceArea = (primaryFace.boundingBox.width() * primaryFace.boundingBox.height()).toFloat()
         val imageArea = (width * height).toFloat()
@@ -359,64 +421,34 @@ class FaceStateEvaluator(
         frameCounter++
         SunglassesDebugHelper.logFrameProcessing(frameCounter, frameCounter % INFERENCE_INTERVAL == 0)
         
-        if (frameCounter % INFERENCE_INTERVAL == 0) {
-            try {
-                val faceBitmap = FaceCropper.cropFaceFromFrame(imageProxy, primaryFace)
-                if (faceBitmap != null) {
-                    val classificationResult = sunglassesClassifier.classify(faceBitmap)
-                    
-                    if (classificationResult.error == null) {
-                        // Update sunglasses detection state
-                        if (classificationResult.hasSunglasses != sunglassesDetected) {
-                            sunglassesDetected = classificationResult.hasSunglasses
-                            lastSunglassesDetectionTime = now
-                            
-                            SunglassesDebugHelper.logStateChange(
-                                sunglassesDetected,
-                                "confidence=${"%.3f".format(classificationResult.confidence)}"
-                            )
-                            
-                            if (sunglassesDetected) {
-                                Log.d(TAG, "🕶️ SUNGLASSES DETECTED: ${classificationResult.confidence}")
-                                println("[ALVION] 🕶️ SUNGLASSES DETECTED: confidence=${"%.2f".format(classificationResult.confidence)}")
-                                mainThreadPoster.post { onEyeOccluded(true) }
-                                
-                                // Reset drowsiness tracking when sunglasses detected
-                                eyeClosedStartTime = null
-                                hasFiredDrowsyForThisClosure = false
-                            } else {
-                                Log.d(TAG, "👁️ SUNGLASSES REMOVED: ${classificationResult.confidence}")
-                                println("[ALVION] 👁️ SUNGLASSES REMOVED: confidence=${"%.2f".format(classificationResult.confidence)}")
-                                mainThreadPoster.post { onEyeOccluded(false) }
-                            }
-                        }
-                    } else {
-                        Log.w(TAG, "Classification error: ${classificationResult.error}")
-                        SunglassesDebugHelper.logError("Classification failed: ${classificationResult.error}")
-                    }
-                    
-                    faceBitmap.recycle()
-                } else {
-                    SunglassesDebugHelper.logImageExtraction(false)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "TFLite inference error: ${e.message}")
-                SunglassesDebugHelper.logError("Inference exception", e)
-            }
+        val sunglassesMonitoringActive = monitoringEnabled && !isCalibrating
+
+        if (sunglassesMonitoringActive && frameCounter % INFERENCE_INTERVAL == 0 && imageProxy != null) {
+            runSunglassesInferenceIfDue(
+                imageProxy = imageProxy,
+                faceBox = primaryFace.boundingBox,
+                now = now,
+                force = true,
+            )
         }
 
-        // If sunglasses detected, suppress drowsiness detection
-        if (sunglassesDetected) {
-            Log.d(TAG, "Drowsiness detection suppressed (sunglasses detected)")
+        // If sunglasses detected, suppress drowsiness and distraction checks.
+        if (sunglassesMonitoringActive && sunglassesDetected) {
+            resetMlKitSafetyTrackingForSunglasses()
+            if (!isEyeOccluded) {
+                isEyeOccluded = true
+                mainThreadPoster.post { onEyeOccluded(true) }
+            }
+            Log.d(TAG, "Drowsiness/distraction detection suppressed (sunglasses detected)")
             SunglassesDebugHelper.logPipelineStatus(
                 modelLoaded = true,
                 faceDetected = true,
                 inferenceRan = frameCounter % INFERENCE_INTERVAL == 0,
                 sunglassesDetected = true
             )
-        } else {
-            // Proceed with normal drowsiness detection
+            return
         }
+
         if (bothEyeProbsNull) {
             if (occlusionStartTime == null) occlusionStartTime = now
             if (now - occlusionStartTime!! >= OCCLUSION_TIMEOUT_MS && !isEyeOccluded) {
@@ -556,6 +588,107 @@ class FaceStateEvaluator(
                 }
             }
         }
+    }
+
+    @androidx.camera.core.ExperimentalGetImage
+    private fun runSunglassesInferenceIfDue(
+        imageProxy: ImageProxy,
+        faceBox: Rect,
+        now: Long,
+        force: Boolean,
+    ) {
+        val classifier = sunglassesClassifier ?: return
+        if (!force && now - lastSunglassesInferenceTime < SUNGLASSES_ONLY_INFERENCE_MS) return
+        lastSunglassesInferenceTime = now
+
+        try {
+            val faceBitmap = FaceCropper.cropFaceFromFrame(imageProxy, faceBox)
+            if (faceBitmap != null) {
+                val classificationResult = classifier.classify(faceBitmap)
+
+                if (classificationResult.error == null) {
+                    updateSunglassesState(classificationResult, now)
+                } else {
+                    Log.w(TAG, "Classification error: ${classificationResult.error}")
+                    SunglassesDebugHelper.logError("Classification failed: ${classificationResult.error}")
+                }
+
+                faceBitmap.recycle()
+            } else {
+                SunglassesDebugHelper.logImageExtraction(false)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "TFLite inference error: ${e.message}")
+            SunglassesDebugHelper.logError("Inference exception", e)
+        }
+    }
+
+    private fun updateSunglassesState(
+        classificationResult: SunglassesClassifier.ClassificationResult,
+        now: Long,
+    ) {
+        val confidentSunglasses = classificationResult.confidence >= SUNGLASSES_DETECT_THRESHOLD
+        val confidentClear = classificationResult.confidence <= SUNGLASSES_CLEAR_THRESHOLD
+
+        if (confidentSunglasses) {
+            sunglassesHitStreak++
+            sunglassesClearStreak = 0
+        } else if (confidentClear) {
+            sunglassesClearStreak++
+            sunglassesHitStreak = 0
+        } else {
+            sunglassesHitStreak = 0
+            sunglassesClearStreak = 0
+        }
+
+        if (!sunglassesDetected && sunglassesHitStreak >= SUNGLASSES_CONFIRMATION_FRAMES) {
+            setSunglassesDetected(true, classificationResult, now)
+        } else if (sunglassesDetected && sunglassesClearStreak >= SUNGLASSES_CONFIRMATION_FRAMES) {
+            setSunglassesDetected(false, classificationResult, now)
+        }
+    }
+
+    private fun setSunglassesDetected(
+        detected: Boolean,
+        classificationResult: SunglassesClassifier.ClassificationResult,
+        now: Long,
+    ) {
+        if (detected == sunglassesDetected) return
+
+        sunglassesDetected = detected
+        lastSunglassesDetectionTime = now
+
+        SunglassesDebugHelper.logStateChange(
+            sunglassesDetected,
+            "confidence=${"%.3f".format(classificationResult.confidence)}, raw=${"%.3f".format(classificationResult.rawOutput)}",
+        )
+
+        if (sunglassesDetected) {
+            Log.d(TAG, "Sunglasses detected: ${classificationResult.confidence}")
+            println("[ALVION] SUNGLASSES DETECTED: confidence=${"%.2f".format(classificationResult.confidence)}")
+            resetMlKitSafetyTrackingForSunglasses()
+            if (!isEyeOccluded) {
+                isEyeOccluded = true
+                mainThreadPoster.post { onEyeOccluded(true) }
+            }
+        } else {
+            Log.d(TAG, "Sunglasses removed: ${classificationResult.confidence}")
+            println("[ALVION] SUNGLASSES REMOVED: confidence=${"%.2f".format(classificationResult.confidence)}")
+            if (isEyeOccluded) {
+                isEyeOccluded = false
+                mainThreadPoster.post { onEyeOccluded(false) }
+            }
+        }
+    }
+
+    private fun resetMlKitSafetyTrackingForSunglasses() {
+        eyeScoreEma = null
+        eyeClosedStartTime = null
+        distractionStartTime = null
+        hasFiredDrowsyForThisClosure = false
+        occlusionStartTime = null
+        presenceStaticStartTime = null
+        hasFiredPresenceCheck = false
     }
 
     private fun handleInvalidFrame(now: Long) {
