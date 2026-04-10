@@ -32,6 +32,7 @@ class SunglassesClassifier(context: Context) {
         private const val MODEL_NAME = "sunglasses_model.tflite"
         private const val INPUT_SIZE = 128
         private const val CONFIDENCE_THRESHOLD = 0.5f
+        private const val RAW_OUTPUT_IS_NO_SUNGLASSES_PROBABILITY = false
     }
     
     private lateinit var interpreter: Interpreter
@@ -94,12 +95,21 @@ class SunglassesClassifier(context: Context) {
             // Run inference
             interpreter.run(inputBuffer, outputBuffer)
             
-            // Extract confidence from [1, 1] tensor
-            val confidence = outputBuffer[0][0]
+            // Extract raw score from [1, 1] tensor and expose it as sunglasses confidence.
+            val rawOutput = outputBuffer[0][0].coerceIn(0f, 1f)
+            val confidence =
+                if (RAW_OUTPUT_IS_NO_SUNGLASSES_PROBABILITY) {
+                    1f - rawOutput
+                } else {
+                    rawOutput
+                }
             val hasSunglasses = confidence > CONFIDENCE_THRESHOLD
             
             SunglassesDebugHelper.logInferenceResult(confidence, hasSunglasses)
-            Log.d(TAG, "Classification: confidence=${"%.3f".format(confidence)}, sunglasses=$hasSunglasses")
+            Log.d(
+                TAG,
+                "Classification: raw=${"%.3f".format(rawOutput)}, sunglassesConfidence=${"%.3f".format(confidence)}, sunglasses=$hasSunglasses",
+            )
             
             // Clean up if we resized
             if (resizedBitmap != faceBitmap) {
@@ -109,6 +119,7 @@ class SunglassesClassifier(context: Context) {
             ClassificationResult(
                 hasSunglasses = hasSunglasses,
                 confidence = confidence,
+                rawOutput = rawOutput,
                 error = null
             )
         } catch (e: Exception) {
@@ -117,6 +128,7 @@ class SunglassesClassifier(context: Context) {
             ClassificationResult(
                 hasSunglasses = false,
                 confidence = 0f,
+                rawOutput = 0f,
                 error = e.message ?: "Unknown error"
             )
         }
@@ -167,7 +179,8 @@ class SunglassesClassifier(context: Context) {
      */
     data class ClassificationResult(
         val hasSunglasses: Boolean,      // true if confidence > 0.5
-        val confidence: Float,            // Raw model output (0-1)
+        val confidence: Float,            // Sunglasses confidence (0-1)
+        val rawOutput: Float = confidence,
         val error: String? = null         // Error message if classification failed
     ) {
         fun toLog(): String = when {
@@ -177,8 +190,6 @@ class SunglassesClassifier(context: Context) {
         }
     }
 }
-
-
 
 
 
