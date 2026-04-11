@@ -343,11 +343,11 @@ class FaceStateEvaluator(
         Log.d(TAG, "ML Kit skipped for sunglasses-only frame (${width}x$height)")
     }
 
+    @androidx.camera.core.ExperimentalGetImage
     fun evaluate(
         faces: List<Face>,
         width: Int,
         height: Int,
-        @androidx.camera.core.ExperimentalGetImage
         imageProxy: ImageProxy? = null,
     ) {
         val now = clock()
