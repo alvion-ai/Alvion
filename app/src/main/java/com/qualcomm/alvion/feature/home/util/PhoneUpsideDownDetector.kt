@@ -94,7 +94,7 @@ fun rememberPhoneUpsideDown(enabled: Boolean): Boolean {
                     gravity[0] = alpha * gravity[0] + (1 - alpha) * event.values[0]
                     gravity[1] = alpha * gravity[1] + (1 - alpha) * event.values[1]
                     gravity[2] = alpha * gravity[2] + (1 - alpha) * event.values[2]
-                    
+
                     val rotation = PhoneUpsideDownDetector.displayRotation(context)
                     val configOrientation = context.resources.configuration.orientation
                     upsideDown =

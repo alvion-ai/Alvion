@@ -42,7 +42,7 @@ class FaceDetectionAnalyzer(
     private val onEyeOccluded: (Boolean) -> Unit = {},
     private val onOcclusionStateChanged: (Boolean) -> Unit = {},
     private val onPresenceCheck: () -> Unit = {},
-    private val context: Context,  // For TFLite model loading
+    private val context: Context, // For TFLite model loading
     private val detector: FaceProcessor = MlKitFaceProcessor(),
     mainThreadPoster: MainThreadPoster = AndroidMainThreadPoster(),
 ) : ImageAnalysis.Analyzer {
@@ -128,20 +128,20 @@ class FaceStateEvaluator(
     private val onPresenceCheck: () -> Unit = {},
     private val mainThreadPoster: MainThreadPoster = AndroidMainThreadPoster(),
     private val clock: () -> Long = { System.currentTimeMillis() },
-    private val context: Context? = null,  // For TFLite model loading
+    private val context: Context? = null, // For TFLite model loading
     private val sunglassesClassifier: SunglassesClassifier? = context?.let { SunglassesClassifier(it) },
 ) {
     private val TAG = "FaceStateEvaluator"
-    
+
     // ===== TFLite Sunglasses Classifier =====
     private var frameCounter = 0
-    private val INFERENCE_INTERVAL = 3  // Run inference every 3 frames
+    private val INFERENCE_INTERVAL = 3 // Run inference every 3 frames
     private val SUNGLASSES_DETECT_THRESHOLD = 0.70f
     private val SUNGLASSES_CLEAR_THRESHOLD = 0.45f
     private val SUNGLASSES_CONFIRMATION_FRAMES = 2
     private val SUNGLASSES_MLKIT_REFRESH_MS = 1200L
     private val SUNGLASSES_ONLY_INFERENCE_MS = 300L
-    
+
     private val FACE_AREA_THRESHOLD = 0.60f
     private val DROWSY_TRIGGER_MS = 1200L
     private val DISTRACTION_MIRROR_MS = 4000L
@@ -154,6 +154,7 @@ class FaceStateEvaluator(
     private val OCCLUSION_TIMEOUT_MS = 3000L
     private val PRESENCE_CHECK_MS = 10000L
     private val MOTION_BUFFER_SIZE = 5
+
     // Thresholds tuned for "static photo" detection. A real human typically jitters more than this.
     private val CENTER_X_VARIANCE_EPS = 0.25f // ~within ~1px range
     private val ROT_Y_VARIANCE_EPS = 0.04f // ~within ~0.4deg range
@@ -172,7 +173,7 @@ class FaceStateEvaluator(
     private var lastValidMetricsTime = 0L
     private var hasFiredDrowsyForThisClosure = false
     private var lastDrowsyCallbackTime = 0L
-    
+
     // Sunglasses detection state
     private var sunglassesDetected = false
     private var lastSunglassesDetectionTime = 0L
@@ -285,7 +286,7 @@ class FaceStateEvaluator(
         hasFiredPresenceCheck = false
         lastPresenceCallbackTime = 0L
         openEyeStatsByBucket.values.forEach { it.reset() }
-        
+
         // Reset sunglasses state
         sunglassesDetected = false
         frameCounter = 0
@@ -296,7 +297,7 @@ class FaceStateEvaluator(
         sunglassesClearStreak = 0
         cachedFaceBox = null
     }
-    
+
     /**
      * Clean up resources (call when activity destroys).
      */
@@ -420,7 +421,7 @@ class FaceStateEvaluator(
         // Run every 3 frames for performance (frame skipping)
         frameCounter++
         SunglassesDebugHelper.logFrameProcessing(frameCounter, frameCounter % INFERENCE_INTERVAL == 0)
-        
+
         val sunglassesMonitoringActive = monitoringEnabled && !isCalibrating
 
         if (sunglassesMonitoringActive && frameCounter % INFERENCE_INTERVAL == 0 && imageProxy != null) {
@@ -444,7 +445,7 @@ class FaceStateEvaluator(
                 modelLoaded = true,
                 faceDetected = true,
                 inferenceRan = frameCounter % INFERENCE_INTERVAL == 0,
-                sunglassesDetected = true
+                sunglassesDetected = true,
             )
             return
         }
@@ -495,8 +496,8 @@ class FaceStateEvaluator(
                 if (presenceStaticStartTime == null) presenceStaticStartTime = now
                 if (
                     now - presenceStaticStartTime!! >= PRESENCE_CHECK_MS &&
-                        !hasFiredPresenceCheck &&
-                        now - lastPresenceCallbackTime >= CALLBACK_COOLDOWN_MS
+                    !hasFiredPresenceCheck &&
+                    now - lastPresenceCallbackTime >= CALLBACK_COOLDOWN_MS
                 ) {
                     hasFiredPresenceCheck = true
                     lastPresenceCallbackTime = now
@@ -520,7 +521,7 @@ class FaceStateEvaluator(
 
             val leftScore = leftProb ?: if (leftLandmark != null) 0.05f else 1f
             val rightScore = rightProb ?: if (rightLandmark != null) 0.05f else 1f
-            
+
             val rawScore = min(leftScore, rightScore)
 
             val currentScore = (rawScore - penalty).coerceIn(0f, 1f)
