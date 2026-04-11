@@ -27,3 +27,4 @@ google-services.json
 *.log
 .temp/
 .tmp/
+.qodo
