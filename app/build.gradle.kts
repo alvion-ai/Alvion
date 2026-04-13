@@ -90,6 +90,9 @@ dependencies {
     implementation("androidx.camera:camera-view:${camerax_version}")
 
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    // TensorFlow Lite for custom sunglasses classifier
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
 }
 
 ktlint {

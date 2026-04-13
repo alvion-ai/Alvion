@@ -68,19 +68,21 @@ fun GraphicOverlay(
                 var textY = top - 10f
 
                 val lines = mutableListOf<String>()
-                
+
                 if (info.isEyeOccluded) {
                     lines.add("!!! EYES OCCLUDED !!!")
                 }
-                
-                lines.addAll(listOf(
-                    "Eye L: %.2f".format(info.leftEye),
-                    "Eye R: %.2f".format(info.rightEye),
-                    "EMA: %.2f".format(info.eyeEma),
-                    "Yaw: %.1f".format(info.yaw),
-                    "Pitch: %.1f".format(info.pitch),
-                    "Thresh: %.2f".format(info.threshold),
-                ))
+
+                lines.addAll(
+                    listOf(
+                        "Eye L: %.2f".format(info.leftEye),
+                        "Eye R: %.2f".format(info.rightEye),
+                        "EMA: %.2f".format(info.eyeEma),
+                        "Yaw: %.1f".format(info.yaw),
+                        "Pitch: %.1f".format(info.pitch),
+                        "Thresh: %.2f".format(info.threshold),
+                    ),
+                )
 
                 // Draw from bottom to top to stay above the box
                 lines.reversed().forEach { line ->
@@ -92,7 +94,7 @@ fun GraphicOverlay(
                         paint.color = (if (info.isEyeOccluded) Color.Yellow else Color.Green).toArgb()
                         paint.isFakeBoldText = false
                     }
-                    
+
                     drawContext.canvas.nativeCanvas.drawText(line, textX, textY, paint)
                     textY -= 40f
                 }
