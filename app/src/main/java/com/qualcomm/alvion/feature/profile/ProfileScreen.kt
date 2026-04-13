@@ -1,6 +1,10 @@
 package com.qualcomm.alvion.feature.profile
 
+import android.content.Intent
+import android.graphics.BitmapFactory
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -20,7 +24,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,6 +38,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.qualcomm.alvion.core.data.SettingsRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 // ─────────────────────────────────────────────────────────────
 //  Design tokens
@@ -60,6 +69,7 @@ fun ProfileScreen(
     val alertSound by viewModel.alertSoundEnabled.collectAsState()
     val vibration by viewModel.vibrationEnabled.collectAsState()
     val darkMode by viewModel.darkModeEnabled.collectAsState()
+    val profileImageUri by viewModel.profileImageUri.collectAsState()
     val updateStatus by viewModel.updateStatus.collectAsState()
 
     val firebaseName = remember { FirebaseAuth.getInstance().currentUser?.displayName ?: "" }
@@ -67,6 +77,18 @@ fun ProfileScreen(
 
     var showSignOutDialog by remember { mutableStateOf(false) }
     var isEditingName by remember { mutableStateOf(false) }
+
+    val profileImageLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                try {
+                    context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: SecurityException) {
+                    // Some providers grant temporary read access only; still store the URI for this session.
+                }
+                viewModel.updateProfileImageUri(uri.toString())
+            }
+        }
 
     LaunchedEffect(updateStatus) {
         when (updateStatus) {
@@ -111,7 +133,12 @@ fun ProfileScreen(
                     .verticalScroll(rememberScrollState()),
         ) {
             // ── Hero Header ──────────────────────────────────────────
-            HeroHeader(displayName = displayName, email = email)
+            HeroHeader(
+                displayName = displayName,
+                email = email,
+                profileImageUri = profileImageUri,
+                onSelectProfileImage = { profileImageLauncher.launch(arrayOf("image/*")) },
+            )
 
             // ── Body ─────────────────────────────────────────────────
             Column(
@@ -270,6 +297,8 @@ fun ProfileScreen(
 private fun HeroHeader(
     displayName: String,
     email: String,
+    profileImageUri: String,
+    onSelectProfileImage: () -> Unit,
 ) {
     Box(
         modifier =
@@ -314,34 +343,10 @@ private fun HeroHeader(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            // Avatar circle with initials
-            val initials =
-                displayName
-                    .trim()
-                    .split(" ")
-                    .take(2)
-                    .mapNotNull { it.firstOrNull()?.uppercaseChar() }
-                    .joinToString("")
-                    .ifEmpty { "?" }
-
-            Box(
-                modifier =
-                    Modifier
-                        .size(80.dp)
-                        .shadow(12.dp, CircleShape)
-                        .background(
-                            Brush.linearGradient(listOf(Color.White.copy(0.3f), Color.White.copy(0.15f))),
-                            CircleShape,
-                        ).border(2.dp, Color.White.copy(0.5f), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = initials,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
-            }
+            ProfileAvatar(
+                profileImageUri = profileImageUri,
+                onSelectProfileImage = onSelectProfileImage,
+            )
 
             Spacer(Modifier.height(12.dp))
 
@@ -369,6 +374,88 @@ private fun HeroHeader(
                         RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                     ).background(MaterialTheme.colorScheme.background),
         )
+    }
+}
+
+@Composable
+private fun ProfileAvatar(
+    profileImageUri: String,
+    onSelectProfileImage: () -> Unit,
+) {
+    val imageBitmap by rememberProfileImage(profileImageUri)
+
+    Box(
+        modifier =
+            Modifier
+                .size(88.dp)
+                .shadow(12.dp, CircleShape)
+                .clip(CircleShape)
+                .clickable(onClick = onSelectProfileImage),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (imageBitmap != null) {
+            Image(
+                bitmap = imageBitmap!!,
+                contentDescription = "Profile picture",
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .border(2.dp, Color.White.copy(0.55f), CircleShape),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFFE5E7EB), CircleShape)
+                        .border(2.dp, Color.White.copy(0.65f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Default profile picture",
+                    tint = Color(0xFF9CA3AF),
+                    modifier = Modifier.size(44.dp),
+                )
+            }
+        }
+
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(28.dp)
+                    .background(Blue600, CircleShape)
+                    .border(2.dp, Color.White, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.PhotoCamera,
+                contentDescription = "Change profile picture",
+                tint = Color.White,
+                modifier = Modifier.size(15.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun rememberProfileImage(profileImageUri: String): State<ImageBitmap?> {
+    val context = LocalContext.current
+
+    return produceState<ImageBitmap?>(initialValue = null, profileImageUri) {
+        value = null
+        if (profileImageUri.isBlank()) return@produceState
+
+        value =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(android.net.Uri.parse(profileImageUri))?.use { input ->
+                        BitmapFactory.decodeStream(input)?.asImageBitmap()
+                    }
+                }.getOrNull()
+            }
     }
 }
 
