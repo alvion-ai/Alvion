@@ -1,7 +1,6 @@
 package com.qualcomm.alvion.feature.home.util
 
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -37,11 +36,12 @@ fun rememberCurrentSpeedKmh(enabled: Boolean): Int {
         )
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        hasPermission = granted
-    }
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            hasPermission = granted
+        }
 
     // Request permission as soon as the composable enters the composition.
     LaunchedEffect(Unit) {
@@ -58,25 +58,29 @@ fun rememberCurrentSpeedKmh(enabled: Boolean): Int {
 
         val fusedClient = LocationServices.getFusedLocationProviderClient(context)
 
-        val request = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY,
-            /* intervalMillis = */ 1_000L,
-        ).apply {
-            setMinUpdateIntervalMillis(500L)
-            setMinUpdateDistanceMeters(0f) // Report even if stationary (speed = 0)
-        }.build()
+        val request =
+            LocationRequest
+                .Builder(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    /* intervalMillis = */ 1_000L,
+                ).apply {
+                    setMinUpdateIntervalMillis(500L)
+                    setMinUpdateDistanceMeters(0f) // Report even if stationary (speed = 0)
+                }.build()
 
-        val callback = object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) {
-                val location = result.lastLocation ?: return
-                // location.speed is in m/s; convert to km/h
-                speedKmh = if (location.hasSpeed() && location.speed >= 0f) {
-                    (location.speed * 3.6f).roundToInt()
-                } else {
-                    0
+        val callback =
+            object : LocationCallback() {
+                override fun onLocationResult(result: LocationResult) {
+                    val location = result.lastLocation ?: return
+                    // location.speed is in m/s; convert to km/h
+                    speedKmh =
+                        if (location.hasSpeed() && location.speed >= 0f) {
+                            (location.speed * 3.6f).roundToInt()
+                        } else {
+                            0
+                        }
                 }
             }
-        }
 
         try {
             fusedClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
