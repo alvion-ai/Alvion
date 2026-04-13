@@ -5,23 +5,20 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,14 +30,11 @@ import com.google.firebase.auth.FirebaseAuth
 import com.qualcomm.alvion.core.data.SettingsRepository
 
 // ─────────────────────────────────────────────────────────────
-//  Design tokens
+//  Design tokens (Uniform with History/Home)
 // ─────────────────────────────────────────────────────────────
-private val Blue600 = Color(0xFF2563EB)
-private val Cyan400 = Color(0xFF22D3EE)
-private val Indigo500 = Color(0xFF6366F1)
-private val Rose500 = Color(0xFFEF4444)
-
-private val heroGradient = listOf(Blue600, Cyan400.copy(alpha = 0.8f))
+private val PrimaryBlue = Color(0xFF2563EB)
+private val SecondaryCyan = Color(0xFF06B6D4)
+private val DangerRed = Color(0xFFEF4444)
 
 // ─────────────────────────────────────────────────────────────
 //  Root Screen
@@ -56,7 +50,6 @@ fun ProfileScreen(
     val context = LocalContext.current
 
     val displayName by viewModel.displayName.collectAsState()
-    val email by viewModel.email.collectAsState()
     val alertSound by viewModel.alertSoundEnabled.collectAsState()
     val vibration by viewModel.vibrationEnabled.collectAsState()
     val darkMode by viewModel.darkModeEnabled.collectAsState()
@@ -76,12 +69,7 @@ fun ProfileScreen(
                 isEditingName = false
             }
             is SettingsViewModel.UpdateStatus.Error -> {
-                Toast
-                    .makeText(
-                        context,
-                        (updateStatus as SettingsViewModel.UpdateStatus.Error).message,
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                Toast.makeText(context, (updateStatus as SettingsViewModel.UpdateStatus.Error).message, Toast.LENGTH_SHORT).show()
                 viewModel.clearUpdateStatus()
             }
             else -> {}
@@ -98,341 +86,191 @@ fun ProfileScreen(
         )
     }
 
-    Box(
+    Column(
         modifier =
             Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
+        // --- MODERN MINIMALIST HEADER ---
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp,
         ) {
-            // ── Hero Header ──────────────────────────────────────────
-            HeroHeader(displayName = displayName, email = email)
-
-            // ── Body ─────────────────────────────────────────────────
             Column(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .padding(bottom = 40.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                        .statusBarsPadding()
+                        .padding(horizontal = 24.dp, vertical = 20.dp),
             ) {
-                Spacer(Modifier.height(4.dp))
-
-                // ── Account Card ─────────────────────────────────────
-                ProfileSectionCard(
-                    title = "Account",
-                    accent = Blue600,
-                    iconVec = Icons.Default.Person,
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        AnimatedContent(
-                            targetState = isEditingName,
-                            transitionSpec = {
-                                (fadeIn() + expandVertically()).togetherWith(fadeOut() + shrinkVertically())
-                            },
-                            label = "EditNameAnimation",
-                        ) { editing ->
-                            if (editing) {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    StyledTextField(
-                                        value = displayName,
-                                        onValueChange = { viewModel.updateDisplayName(it) },
-                                        label = "Display Name",
-                                        leadingIcon = Icons.Default.Person,
-                                        accentColor = Blue600,
-                                    )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    ) {
-                                        OutlinedButton(
-                                            onClick = {
-                                                viewModel.updateDisplayName(firebaseName)
-                                                isEditingName = false
-                                            },
-                                            modifier = Modifier.weight(1f),
-                                            shape = RoundedCornerShape(12.dp),
-                                        ) {
-                                            Text("Cancel")
-                                        }
-                                        Button(
-                                            onClick = { viewModel.saveProfileName() },
-                                            enabled = isNameChanged && updateStatus !is SettingsViewModel.UpdateStatus.Loading,
-                                            modifier = Modifier.weight(1f),
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = Blue600),
-                                        ) {
-                                            if (updateStatus is SettingsViewModel.UpdateStatus.Loading) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(20.dp),
-                                                    color = Color.White,
-                                                    strokeWidth = 2.dp,
-                                                )
-                                            } else {
-                                                Text("Save")
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                EditableInfoRow(
-                                    label = "Display Name",
-                                    value = displayName.ifEmpty { "Not set" },
-                                    icon = Icons.Default.Person,
-                                    accent = Blue600,
-                                    onEdit = { isEditingName = true },
-                                )
-                            }
-                        }
-
-                        StyledTextField(
-                            value = email,
-                            onValueChange = {},
-                            label = "Email (read-only)",
-                            leadingIcon = Icons.Default.Email,
-                            accentColor = Blue600,
-                            enabled = false,
-                        )
-                    }
-                }
-
-                // ── Alert Preferences Card ───────────────────────────
-                ProfileSectionCard(
-                    title = "Alert Preferences",
-                    accent = Cyan400,
-                    iconVec = Icons.Default.NotificationsActive,
-                ) {
-                    Column {
-                        ToggleRow(
-                            icon = Icons.AutoMirrored.Filled.VolumeUp,
-                            title = "Alert Sound",
-                            subtitle = "Audio alert on detection",
-                            checked = alertSound,
-                            accent = Cyan400,
-                            onChecked = { viewModel.toggleAlertSound(it) },
-                        )
-                        SectionDivider()
-                        ToggleRow(
-                            icon = Icons.Default.Vibration,
-                            title = "Vibration",
-                            subtitle = "Haptic feedback on events",
-                            checked = vibration,
-                            accent = Cyan400,
-                            onChecked = { viewModel.toggleVibration(it) },
-                        )
-                    }
-                }
-
-                // ── Appearance Card ──────────────────────────────────
-                ProfileSectionCard(
-                    title = "Appearance",
-                    accent = Indigo500,
-                    iconVec = Icons.Default.Palette,
-                ) {
-                    ToggleRow(
-                        icon = Icons.Default.DarkMode,
-                        title = "Dark Mode",
-                        subtitle = "Switch app theme",
-                        checked = darkMode,
-                        accent = Indigo500,
-                        onChecked = { viewModel.toggleDarkMode(it) },
-                    )
-                }
-
-                // ── Danger Zone ──────────────────────────────────────
-                ProfileSectionCard(
-                    title = "Account Actions",
-                    accent = Rose500,
-                    iconVec = Icons.Default.Shield,
-                ) {
-                    ActionRow(
-                        icon = Icons.AutoMirrored.Filled.Logout,
-                        label = "Sign Out",
-                        color = Rose500,
-                        onClick = { showSignOutDialog = true },
-                    )
-                }
+                Text(
+                    "PREFERENCES",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = PrimaryBlue,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                )
+                Text(
+                    "Settings",
+                    style =
+                        TextStyle(
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-1).sp,
+                        ),
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
             }
         }
-    }
-}
 
-// ─────────────────────────────────────────────────────────────
-//  Hero Header
-// ─────────────────────────────────────────────────────────────
-@Composable
-private fun HeroHeader(
-    displayName: String,
-    email: String,
-) {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(220.dp),
-    ) {
-        // Gradient background
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(Brush.linearGradient(heroGradient)),
-        )
-
-        // Decorative blobs
-        Box(
-            modifier =
-                Modifier
-                    .size(200.dp)
-                    .offset((-60).dp, (-60).dp)
-                    .blur(60.dp)
-                    .background(Color.White.copy(alpha = 0.12f), CircleShape),
-        )
-        Box(
-            modifier =
-                Modifier
-                    .size(180.dp)
-                    .align(Alignment.BottomEnd)
-                    .offset(50.dp, 50.dp)
-                    .blur(50.dp)
-                    .background(Cyan400.copy(alpha = 0.25f), CircleShape),
-        )
-
-        // Content
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            // Avatar circle with initials
-            val initials =
-                displayName
-                    .trim()
-                    .split(" ")
-                    .take(2)
-                    .mapNotNull { it.firstOrNull()?.uppercaseChar() }
-                    .joinToString("")
-                    .ifEmpty { "?" }
-
-            Box(
-                modifier =
-                    Modifier
-                        .size(80.dp)
-                        .shadow(12.dp, CircleShape)
-                        .background(
-                            Brush.linearGradient(listOf(Color.White.copy(0.3f), Color.White.copy(0.15f))),
-                            CircleShape,
-                        ).border(2.dp, Color.White.copy(0.5f), CircleShape),
-                contentAlignment = Alignment.Center,
+            // ── Account Section ─────────────────────────────────────
+            ProfileSectionCard(
+                title = "ACCOUNT",
+                accent = PrimaryBlue,
+                iconVec = Icons.Rounded.Person,
             ) {
-                Text(
-                    text = initials,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                AnimatedContent(
+                    targetState = isEditingName,
+                    transitionSpec = {
+                        (fadeIn() + expandVertically()).togetherWith(fadeOut() + shrinkVertically())
+                    },
+                    label = "EditNameAnimation",
+                ) { editing ->
+                    if (editing) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedTextField(
+                                value = displayName,
+                                onValueChange = { viewModel.updateDisplayName(it) },
+                                label = { Text("Display Name") },
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors =
+                                    OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = PrimaryBlue,
+                                        focusedLabelColor = PrimaryBlue,
+                                    ),
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        viewModel.updateDisplayName(firebaseName)
+                                        isEditingName = false
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Button(
+                                    onClick = { viewModel.saveProfileName() },
+                                    enabled = isNameChanged && updateStatus !is SettingsViewModel.UpdateStatus.Loading,
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                                ) {
+                                    if (updateStatus is SettingsViewModel.UpdateStatus.Loading) {
+                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                    } else {
+                                        Text("Save Changes")
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        SettingsRow(
+                            icon = Icons.Rounded.Badge,
+                            title = "Display Name",
+                            subtitle = displayName.ifEmpty { "Not set" },
+                            accent = PrimaryBlue,
+                            onClick = { isEditingName = true },
+                            trailing = {
+                                Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp), tint = PrimaryBlue.copy(0.6f))
+                            },
+                        )
+                    }
+                }
+            }
+
+            // ── System Preferences ───────────────────────────
+            ProfileSectionCard(
+                title = "ALERTS & SYSTEM",
+                accent = SecondaryCyan,
+                iconVec = Icons.Rounded.Tune,
+            ) {
+                ToggleRow(
+                    icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                    title = "Alert Audio",
+                    subtitle = "Sound feedback on detection",
+                    checked = alertSound,
+                    accent = SecondaryCyan,
+                    onChecked = { viewModel.toggleAlertSound(it) },
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 12.dp),
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+                ToggleRow(
+                    icon = Icons.Rounded.Vibration,
+                    title = "Haptic Alerts",
+                    subtitle = "Vibrate device on warnings",
+                    checked = vibration,
+                    accent = SecondaryCyan,
+                    onChecked = { viewModel.toggleVibration(it) },
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 12.dp),
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+                ToggleRow(
+                    icon = Icons.Rounded.DarkMode,
+                    title = "Dark Mode",
+                    subtitle = "Toggle application theme",
+                    checked = darkMode,
+                    accent = SecondaryCyan,
+                    onChecked = { viewModel.toggleDarkMode(it) },
                 )
             }
 
-            Spacer(Modifier.height(12.dp))
+            // ── Actions ──────────────────────────────────────
+            ProfileSectionCard(
+                title = "DANGER ZONE",
+                accent = DangerRed,
+                iconVec = Icons.Rounded.GppMaybe,
+            ) {
+                SettingsRow(
+                    icon = Icons.AutoMirrored.Rounded.Logout,
+                    title = "Sign Out",
+                    subtitle = "Log out of your Alvion account",
+                    accent = DangerRed,
+                    onClick = { showSignOutDialog = true },
+                )
+            }
 
+            Spacer(Modifier.height(24.dp))
             Text(
-                text = displayName.ifEmpty { "Driver" },
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-            )
-            Text(
-                text = email,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.8f),
-            )
-        }
-
-        // Bottom wave cut
-        Box(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(28.dp)
-                    .clip(
-                        RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                    ).background(MaterialTheme.colorScheme.background),
-        )
-    }
-}
-
-// ─────────────────────────────────────────────────────────────
-//  Editable Info Row
-// ─────────────────────────────────────────────────────────────
-@Composable
-private fun EditableInfoRow(
-    label: String,
-    value: String,
-    icon: ImageVector,
-    accent: Color,
-    onEdit: () -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable { onEdit() }
-                .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(accent.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(icon, null, tint = accent, modifier = Modifier.size(20.dp))
-        }
-
-        Spacer(Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
+                "Version 1.0.1",
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        IconButton(onClick = onEdit) {
-            Icon(
-                imageVector = Icons.Default.Edit,
-                contentDescription = "Edit $label",
-                tint = accent.copy(alpha = 0.6f),
-                modifier = Modifier.size(18.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
             )
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Section Card
-// ─────────────────────────────────────────────────────────────
 @Composable
 private fun ProfileSectionCard(
     title: String,
@@ -440,92 +278,84 @@ private fun ProfileSectionCard(
     iconVec: ImageVector,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-        tonalElevation = 0.dp,
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            // Section header
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 14.dp),
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(accent.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = iconVec,
-                        contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(17.dp),
-                    )
-                }
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = accent,
-                    letterSpacing = 0.3.sp,
-                )
-            }
-            content()
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
+        ) {
+            Icon(iconVec, null, modifier = Modifier.size(14.dp), tint = accent)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+                letterSpacing = 1.sp,
+            )
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                content = content,
+            )
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Styled TextField
-// ─────────────────────────────────────────────────────────────
 @Composable
-private fun StyledTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    leadingIcon: ImageVector,
-    accentColor: Color,
-    enabled: Boolean = true,
+private fun SettingsRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    accent: Color,
+    onClick: () -> Unit,
+    trailing: @Composable (() -> Unit)? = null,
 ) {
-    val textColor = MaterialTheme.colorScheme.onSurface
-    val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(accent.copy(0.1f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, null, modifier = Modifier.size(20.dp), tint = accent)
+        }
 
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        enabled = enabled,
-        label = { Text(label) },
-        leadingIcon = {
-            Icon(leadingIcon, null, tint = if (enabled) accentColor else subTextColor.copy(0.4f))
-        },
-        shape = RoundedCornerShape(14.dp),
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        colors =
-            OutlinedTextFieldDefaults.colors(
-                focusedTextColor = textColor,
-                unfocusedTextColor = textColor,
-                focusedBorderColor = accentColor,
-                unfocusedBorderColor = textColor.copy(alpha = 0.2f),
-                disabledTextColor = textColor.copy(0.5f),
-                disabledBorderColor = textColor.copy(0.1f),
-                disabledLeadingIconColor = subTextColor.copy(0.3f),
-                focusedLabelColor = accentColor,
-                unfocusedLabelColor = subTextColor,
-            ),
-    )
+        Spacer(Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        if (trailing != null) {
+            trailing()
+        } else {
+            Icon(
+                Icons.Rounded.ChevronRight,
+                null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.3f),
+            )
+        }
+    }
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Toggle Row
-// ─────────────────────────────────────────────────────────────
 @Composable
 private fun ToggleRow(
     icon: ImageVector,
@@ -536,124 +366,42 @@ private fun ToggleRow(
     onChecked: (Boolean) -> Unit,
 ) {
     Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier =
                 Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (checked) {
-                            accent.copy(0.12f)
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(0.06f)
-                        },
-                    ),
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(accent.copy(0.1f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (checked) accent else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
+            Icon(icon, null, modifier = Modifier.size(20.dp), tint = accent)
         }
-        Spacer(Modifier.width(14.dp))
+
+        Spacer(Modifier.width(16.dp))
+
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+
         Switch(
             checked = checked,
             onCheckedChange = onChecked,
             colors =
                 SwitchDefaults.colors(
-                    checkedThumbColor = accent,
-                    checkedTrackColor = accent.copy(alpha = 0.25f),
-                    uncheckedThumbColor = Color.Gray,
-                    uncheckedTrackColor = Color.Gray.copy(0.2f),
-                    checkedBorderColor = Color.Transparent,
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = accent,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.outlineVariant,
                     uncheckedBorderColor = Color.Transparent,
                 ),
         )
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Action Row  (sign-out etc.)
-// ─────────────────────────────────────────────────────────────
-@Composable
-private fun ActionRow(
-    icon: ImageVector,
-    label: String,
-    color: Color,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onClick)
-                .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(color.copy(0.1f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
-        }
-        Spacer(Modifier.width(14.dp))
-        Text(
-            text = label,
-            color = color,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-        )
-        Spacer(Modifier.weight(1f))
-        Icon(
-            Icons.Default.ChevronRight,
-            null,
-            tint = color.copy(0.5f),
-            modifier = Modifier.size(18.dp),
-        )
-    }
-}
-
-// ─────────────────────────────────────────────────────────────
-//  Divider
-// ─────────────────────────────────────────────────────────────
-@Composable
-private fun SectionDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(vertical = 10.dp),
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f),
-        thickness = 1.dp,
-    )
-}
-
-// ─────────────────────────────────────────────────────────────
-//  Sign-Out Confirmation Dialog
-// ─────────────────────────────────────────────────────────────
 @Composable
 private fun SignOutDialog(
     onConfirm: () -> Unit,
@@ -661,39 +409,30 @@ private fun SignOutDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(20.dp),
-        icon = {
-            Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Rose500, modifier = Modifier.size(28.dp))
-        },
-        title = { Text("Sign Out?", fontWeight = FontWeight.Bold) },
+        shape = RoundedCornerShape(28.dp),
+        icon = { Icon(Icons.AutoMirrored.Rounded.Logout, null, tint = DangerRed) },
+        title = { Text("Sign Out", fontWeight = FontWeight.ExtraBold) },
         text = {
             Text(
-                "You'll need to sign in again to access your driving history and settings.",
+                "Are you sure you want to log out? Your driving safety data will remain saved, but you'll need to sign back in to access it.",
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = Rose500),
+                colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
                 shape = RoundedCornerShape(12.dp),
             ) { Text("Sign Out", fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
-            OutlinedButton(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(12.dp),
-            ) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         },
     )
 }
 
-// ─────────────────────────────────────────────────────────────
-//  ViewModel Factory
-// ─────────────────────────────────────────────────────────────
 class SettingsViewModelFactory(
-    private val repository: com.qualcomm.alvion.core.data.SettingsRepository,
+    private val repository: SettingsRepository,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
