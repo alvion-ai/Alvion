@@ -50,6 +50,7 @@ import com.qualcomm.alvion.feature.home.components.GraphicOverlay
 import com.qualcomm.alvion.feature.home.util.AlertAudioManager
 import com.qualcomm.alvion.feature.home.util.FaceDetectionAnalyzer
 import com.qualcomm.alvion.feature.home.util.FaceDiagnosticInfo
+import com.qualcomm.alvion.feature.home.util.rememberCurrentSpeedKmh
 import com.qualcomm.alvion.feature.home.util.rememberPhoneUpsideDown
 import com.qualcomm.alvion.feature.profile.SettingsViewModel
 import com.qualcomm.alvion.feature.profile.SettingsViewModelFactory
@@ -117,7 +118,7 @@ fun HomeTab(
     var faces by remember { mutableStateOf<List<Face>>(emptyList()) }
     var diagnosticInfo by remember { mutableStateOf<FaceDiagnosticInfo?>(null) }
     var warnings by remember { mutableIntStateOf(0) }
-    var speedKmh by remember { mutableIntStateOf(92) }
+    val speedKmh = rememberCurrentSpeedKmh(enabled = isSessionActive)
     var elapsedSeconds by remember { mutableIntStateOf(0) }
     var aiMessage by remember { mutableStateOf<AIMessage?>(null) }
     var imageWidth by remember { mutableIntStateOf(0) }

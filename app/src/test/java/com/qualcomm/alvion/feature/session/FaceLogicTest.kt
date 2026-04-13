@@ -1,5 +1,6 @@
 package com.qualcomm.alvion.feature.home.util
 
+import android.graphics.Rect
 import com.google.mlkit.vision.face.Face
 import io.mockk.every
 import io.mockk.mockk
@@ -40,7 +41,7 @@ class FaceLogicTest {
         every { f.headEulerAngleX } returns rotX
         every { f.headEulerAngleZ } returns rotZ
 
-        val rect = mockk<android.graphics.Rect>()
+        val rect = mockk<Rect>()
         every { rect.width() } returns width
         every { rect.height() } returns height
         every { rect.centerX() } returns centerX
@@ -80,6 +81,7 @@ class FaceLogicTest {
                 onDistracted = {},
                 mainThreadPoster = immediatePoster,
                 clock = { currentTime },
+                onFaceTooClose = TODO(),
             )
 
         evaluator.monitoringEnabled = true
@@ -245,6 +247,7 @@ class FaceLogicTest {
                 onDistracted = { distractedCalls.incrementAndGet() },
                 mainThreadPoster = immediatePoster,
                 clock = { currentTime },
+                onFaceTooClose = TODO(),
             )
 
         evaluator.startCalibration()
@@ -274,6 +277,7 @@ class FaceLogicTest {
                 onDistracted = { distractedCalls.incrementAndGet() },
                 mainThreadPoster = immediatePoster,
                 clock = { currentTime },
+                onFaceTooClose = TODO(),
             )
 
         evaluator.startCalibration()
