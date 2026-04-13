@@ -167,27 +167,9 @@ fun DetailRow(
 
 @Composable
 fun AlertItem(alert: TripAlert) {
-    val icon =
-        when (alert.type) {
-            "DROWSINESS" -> Icons.Default.Bedtime
-            "PRESENCE_CHECK" -> Icons.Default.Security
-            "PHONE_UPSIDE_DOWN" -> Icons.Default.PhoneAndroid
-            else -> Icons.Default.PanTool
-        }
-    val color =
-        when (alert.type) {
-            "DROWSINESS" -> Color(0xFFF59E0B)
-            "PRESENCE_CHECK" -> Color(0xFF60A5FA)
-            "PHONE_UPSIDE_DOWN" -> Color(0xFF7C3AED)
-            else -> Color(0xFFEF4444)
-        }
-    val label =
-        when (alert.type) {
-            "DROWSINESS" -> "Drowsiness"
-            "PRESENCE_CHECK" -> "Presence Check"
-            "PHONE_UPSIDE_DOWN" -> "Phone upside down"
-            else -> "Distraction"
-        }
+    val icon = if (alert.type == "DROWSINESS") Icons.Default.Bedtime else Icons.Default.PanTool
+    val color = if (alert.type == "DROWSINESS") Color(0xFFF59E0B) else Color(0xFFEF4444)
+    val label = if (alert.type == "DROWSINESS") "Drowsiness" else "Distraction"
     val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     Row(
