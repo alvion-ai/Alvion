@@ -1281,20 +1281,13 @@ fun EmergencyCallButton(
     modifier: Modifier,
 ) {
     val isDark = isSystemInDarkTheme()
-    val emergencyRed = Color(0xFFDC2626)
-    val containerColor =
-        if (isDark) {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
-        }
+    val emergencyRed = if (isDark) Color(0xFFEF4444) else Color(0xFFDC2626)
     Surface(
         onClick = onCall,
         modifier = modifier.height(72.dp),
         shape = RoundedCornerShape(18.dp),
-        color = containerColor,
-        border = BorderStroke(1.dp, emergencyRed.copy(alpha = if (isDark) 0.24f else 0.14f)),
-        shadowElevation = 2.dp,
+        color = emergencyRed,
+        shadowElevation = 4.dp,
     ) {
         Row(
             modifier =
@@ -1308,7 +1301,7 @@ fun EmergencyCallButton(
                     Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(emergencyRed),
+                        .background(Color.White.copy(alpha = 0.18f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Default.Phone, null, Modifier.size(22.dp), tint = Color.White)
@@ -1319,20 +1312,11 @@ fun EmergencyCallButton(
                     "Emergency Call",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = Color.White,
                 )
-                Text("Tap for immediate help", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Tap for immediate help", fontSize = 12.sp, color = Color.White.copy(alpha = 0.82f))
             }
-            Box(
-                modifier =
-                    Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(emergencyRed.copy(alpha = if (isDark) 0.22f else 0.1f))
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Call", color = emergencyRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(22.dp))
         }
     }
 }
