@@ -28,6 +28,10 @@ class SettingsViewModel(
         repository.darkModeFlow
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val profileImageUri: StateFlow<String> =
+        repository.profileImageUriFlow
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
     private val _displayName = MutableStateFlow(FirebaseAuth.getInstance().currentUser?.displayName ?: "")
     val displayName: StateFlow<String> = _displayName.asStateFlow()
 
@@ -75,6 +79,12 @@ class SettingsViewModel(
     fun toggleDarkMode(enabled: Boolean) {
         viewModelScope.launch {
             repository.updateDarkMode(enabled)
+        }
+    }
+
+    fun updateProfileImageUri(uri: String) {
+        viewModelScope.launch {
+            repository.updateProfileImageUri(uri)
         }
     }
 

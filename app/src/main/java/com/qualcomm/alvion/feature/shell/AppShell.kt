@@ -37,6 +37,7 @@ fun AppShell(
     val selectedBlue = Color(0xFF2563EB)
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.background,

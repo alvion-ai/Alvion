@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -21,6 +22,7 @@ class SettingsRepository(
         val ALERT_SOUND = booleanPreferencesKey("alert_sound")
         val VIBRATION = booleanPreferencesKey("vibration")
         val DARK_MODE = booleanPreferencesKey("dark_mode")
+        val PROFILE_IMAGE_URI = stringPreferencesKey("profile_image_uri")
     }
 
     val alertSoundFlow: Flow<Boolean> =
@@ -59,6 +61,18 @@ class SettingsRepository(
                 preferences[PreferencesKeys.DARK_MODE] ?: false
             }
 
+    val profileImageUriFlow: Flow<String> =
+        context.dataStore.data
+            .catch { exception ->
+                if (exception is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }.map { preferences ->
+                preferences[PreferencesKeys.PROFILE_IMAGE_URI] ?: ""
+            }
+
     suspend fun updateAlertSound(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.ALERT_SOUND] = enabled
@@ -74,6 +88,12 @@ class SettingsRepository(
     suspend fun updateDarkMode(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.DARK_MODE] = enabled
+        }
+    }
+
+    suspend fun updateProfileImageUri(uri: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PROFILE_IMAGE_URI] = uri
         }
     }
 }

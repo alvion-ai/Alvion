@@ -8,6 +8,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +19,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -335,10 +339,10 @@ fun HomeTab(
         val bucketNames = listOf("forward", "left", "right")
         val steps =
             listOf(
-                "Look FORWARD at the road.",
-                "Look at your LEFT mirror.",
-                "Look at your RIGHT mirror.",
-                "Tip: Recalibrate via the Eye icon if you adjust your seat.",
+                "Face forward.",
+                "Look left.",
+                "Look right.",
+                "Review your setup.",
             )
 
         for (i in steps.indices) {
@@ -394,40 +398,47 @@ fun HomeTab(
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
 
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
         ) {
-            Header(
+            HomeHeroHeader(
                 primaryBlue,
                 secondaryCyan,
                 isSessionActive,
-                alertSoundEnabled,
-            ) { settingsViewModel.toggleAlertSound(!alertSoundEnabled) }
-
-            CameraCard(
-                isSessionActive = isSessionActive,
-                surfaceColor = surfaceColor,
-                primaryBlue = primaryBlue,
-                secondaryCyan = secondaryCyan,
-                faceDetectionAnalyzer = faceDetectionAnalyzer,
-                faces = faces,
-                diagnosticInfo = diagnosticInfo,
-                imageWidth = imageWidth,
-                imageHeight = imageHeight,
-                isCalibrating = isCalibrating,
-                hasCalibratedOnce = hasCalibratedOnce,
-                onShowCalibrationDialog = { showCalibrationDialog = true },
-                onEndSession = { isSessionActive = false },
-                onStartSession = { isSessionActive = true },
-                aiMessage = aiMessage,
-                calibrationStep = calibrationStep,
-                calibrationProgress = calibrationProgress,
-                waitingForUserToStartStep = waitingForUserToStartStep,
-                onStartStep = { waitingForUserToStartStep = false },
-                debouncedUpsideDown = debouncedUpsideDown,
             )
 
-            MetricsGrid(warnings, elapsedSeconds, speedKmh, context, primaryBlue)
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                CameraCard(
+                    isSessionActive = isSessionActive,
+                    surfaceColor = surfaceColor,
+                    primaryBlue = primaryBlue,
+                    secondaryCyan = secondaryCyan,
+                    faceDetectionAnalyzer = faceDetectionAnalyzer,
+                    faces = faces,
+                    diagnosticInfo = diagnosticInfo,
+                    imageWidth = imageWidth,
+                    imageHeight = imageHeight,
+                    isCalibrating = isCalibrating,
+                    hasCalibratedOnce = hasCalibratedOnce,
+                    onShowCalibrationDialog = { showCalibrationDialog = true },
+                    onEndSession = { isSessionActive = false },
+                    onStartSession = { isSessionActive = true },
+                    aiMessage = aiMessage,
+                    calibrationStep = calibrationStep,
+                    calibrationProgress = calibrationProgress,
+                    waitingForUserToStartStep = waitingForUserToStartStep,
+                    onStartStep = { waitingForUserToStartStep = false },
+                    debouncedUpsideDown = debouncedUpsideDown,
+                )
+
+                MetricsGrid(isSessionActive, elapsedSeconds, speedKmh, context, primaryBlue)
+            }
         }
 
         if (showCalibrationDialog) {
@@ -444,39 +455,82 @@ fun HomeTab(
 }
 
 @Composable
-private fun Header(
+private fun HomeHeroHeader(
     primaryBlue: Color,
     secondaryCyan: Color,
     isSessionActive: Boolean,
-    soundEnabled: Boolean,
-    onSoundToggle: () -> Unit,
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            Text(
-                text = "ALVION",
-                style =
-                    TextStyle(
-                        brush = Brush.horizontalGradient(listOf(primaryBlue, secondaryCyan)),
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Black,
-                    ),
-            )
-            if (isSessionActive) {
-                Spacer(Modifier.width(12.dp))
-                LiveIndicator()
-            }
-        }
-        IconButton(
-            onClick = onSoundToggle,
-            modifier = Modifier.clip(CircleShape).background(if (soundEnabled) primaryBlue.copy(0.1f) else Color.Transparent),
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(190.dp),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(Brush.linearGradient(listOf(primaryBlue, secondaryCyan.copy(alpha = 0.82f)))),
+        )
+
+        Box(
+            modifier =
+                Modifier
+                    .size(170.dp)
+                    .offset((-42).dp, (-46).dp)
+                    .blur(44.dp)
+                    .background(Color.White.copy(alpha = 0.13f), CircleShape),
+        )
+        Box(
+            modifier =
+                Modifier
+                    .size(150.dp)
+                    .align(Alignment.BottomEnd)
+                    .offset(40.dp, 34.dp)
+                    .blur(42.dp)
+                    .background(Color.White.copy(alpha = 0.12f), CircleShape),
+        )
+
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.Center,
         ) {
-            Icon(
-                imageVector = if (soundEnabled) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
-                contentDescription = null,
-                tint = if (soundEnabled) primaryBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "ALVION",
+                    style =
+                        TextStyle(
+                            color = Color.White,
+                            fontSize = 30.sp,
+                            fontWeight = FontWeight.Black,
+                        ),
+                )
+                if (isSessionActive) {
+                    Spacer(Modifier.width(12.dp))
+                    LiveIndicator(inverted = true)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = if (isSessionActive) "Monitoring your drive in real time." else "Ready when you are.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.86f),
             )
         }
+
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(MaterialTheme.colorScheme.background),
+        )
     }
 }
 
@@ -518,7 +572,7 @@ private fun CameraCard(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(if (isSessionActive) 470.dp else 220.dp)
+                        .height(if (isSessionActive) 470.dp else 320.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(
                             if (isSessionActive) {
@@ -555,59 +609,27 @@ private fun CameraCard(
                     ) { Icon(Icons.Default.Close, "End Trip", Modifier.size(20.dp)) }
 
                     if (isCalibrating) {
-                        Box(
-                            modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.4f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier =
-                                    Modifier
-                                        .padding(
-                                            24.dp,
-                                        ).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
-                                        .padding(20.dp),
-                            ) {
-                                Text("Step $calibrationStep of 4", style = MaterialTheme.typography.labelLarge, color = primaryBlue)
-                                Spacer(Modifier.height(8.dp))
-                                Text(
-                                    aiMessage?.text ?: "",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center,
-                                )
-                                Spacer(Modifier.height(16.dp))
-
-                                if (waitingForUserToStartStep) {
-                                    Button(
-                                        onClick = onStartStep,
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
-                                    ) {
-                                        Text("Start Scan")
-                                    }
-                                } else {
-                                    LinearProgressIndicator(
-                                        progress = { calibrationProgress },
-                                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
-                                        color = primaryBlue,
-                                        trackColor = primaryBlue.copy(0.1f),
-                                    )
-                                    Spacer(Modifier.height(8.dp))
-                                    Text("${(calibrationProgress * 100).toInt()}% Complete", style = MaterialTheme.typography.labelSmall)
-                                }
-                            }
-                        }
+                        CalibrationOverlay(
+                            step = calibrationStep,
+                            aiMessage = aiMessage,
+                            progress = calibrationProgress,
+                            waitingForUserToStartStep = waitingForUserToStartStep,
+                            primaryBlue = primaryBlue,
+                            secondaryCyan = secondaryCyan,
+                            onStartStep = onStartStep,
+                        )
                     }
                 } else {
-                    StandbyContent()
+                    StandbyContent(
+                        primaryBlue = primaryBlue,
+                        secondaryCyan = secondaryCyan,
+                        onStartSession = onStartSession,
+                    )
                 }
             }
-            if (!isCalibrating) {
+            if (!isCalibrating && isSessionActive) {
                 ActionArea(
                     isSessionActive = isSessionActive,
-                    primaryBlue = primaryBlue,
-                    onStartSession = onStartSession,
                     aiMessage = aiMessage,
                     invertMessageForUpsideDown = debouncedUpsideDown,
                 )
@@ -617,44 +639,433 @@ private fun CameraCard(
 }
 
 @Composable
-private fun StandbyContent() {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+private fun CalibrationOverlay(
+    step: Int,
+    aiMessage: AIMessage?,
+    progress: Float,
+    waitingForUserToStartStep: Boolean,
+    primaryBlue: Color,
+    secondaryCyan: Color,
+    onStartStep: () -> Unit,
+) {
+    val currentStep = step.coerceIn(1, 4)
+    val scanProgress = progress.coerceIn(0f, 1f)
+    val stepProgress = if (currentStep == 4) 1f else scanProgress
+    val totalProgress = (((currentStep - 1) + stepProgress) / 4f).coerceIn(0f, 1f)
+
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.46f)),
+        contentAlignment = Alignment.Center,
     ) {
-        LogoSpotlight(logoSize = 80.dp)
-        Spacer(Modifier.height(12.dp))
-        Text("Ready for your journey?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "Tap 'Start Trip' below to enable real-time driver monitoring.",
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center,
-        )
+        AnimatedContent(
+            targetState = currentStep,
+            transitionSpec = {
+                (fadeIn(tween(220)) + slideInHorizontally { it / 5 })
+                    .togetherWith(fadeOut(tween(160)) + slideOutHorizontally { -it / 5 })
+            },
+            label = "CalibrationStepTransition",
+        ) { animatedStep ->
+            Surface(
+                modifier =
+                    Modifier
+                        .padding(18.dp)
+                        .fillMaxWidth()
+                        .widthIn(max = 420.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                tonalElevation = 0.dp,
+                shadowElevation = 12.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column {
+                            Text(
+                                "Step $animatedStep of 4",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = primaryBlue,
+                            )
+                            Text(
+                                calibrationStepTitle(animatedStep),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(primaryBlue.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = calibrationStepIcon(animatedStep, aiMessage?.type),
+                                contentDescription = null,
+                                tint = primaryBlue,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+
+                    CalibrationStepDots(currentStep = animatedStep, accent = primaryBlue)
+
+                    LinearProgressIndicator(
+                        progress = { totalProgress },
+                        modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape),
+                        color = primaryBlue,
+                        trackColor = primaryBlue.copy(alpha = 0.12f),
+                    )
+
+                    CalibrationInstructionCard(
+                        step = animatedStep,
+                        aiMessage = aiMessage,
+                        progress = scanProgress,
+                        waitingForUserToStartStep = waitingForUserToStartStep,
+                        primaryBlue = primaryBlue,
+                    )
+
+                    CalibrationStepAction(
+                        step = animatedStep,
+                        progress = scanProgress,
+                        waitingForUserToStartStep = waitingForUserToStartStep,
+                        primaryBlue = primaryBlue,
+                        secondaryCyan = secondaryCyan,
+                        onStartStep = onStartStep,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalibrationInstructionCard(
+    step: Int,
+    aiMessage: AIMessage?,
+    progress: Float,
+    waitingForUserToStartStep: Boolean,
+    primaryBlue: Color,
+) {
+    val isComplete = aiMessage?.type == MessageType.SUCCESS || progress >= 1f
+    val icon =
+        when {
+            aiMessage?.type == MessageType.WARNING -> Icons.Default.Warning
+            isComplete -> Icons.Default.CheckCircle
+            waitingForUserToStartStep -> Icons.Default.Info
+            else -> Icons.Default.PhotoCamera
+        }
+    val accent =
+        when {
+            aiMessage?.type == MessageType.WARNING -> Color(0xFFEF4444)
+            isComplete -> Color(0xFF10B981)
+            else -> primaryBlue
+        }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = accent.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.14f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(accent.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, null, tint = accent, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    calibrationInstructionTitle(waitingForUserToStartStep, isComplete, step),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    calibrationInstruction(step, waitingForUserToStartStep, isComplete),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalibrationStepAction(
+    step: Int,
+    progress: Float,
+    waitingForUserToStartStep: Boolean,
+    primaryBlue: Color,
+    secondaryCyan: Color,
+    onStartStep: () -> Unit,
+) {
+    if (waitingForUserToStartStep && step <= 3) {
+        Button(
+            onClick = onStartStep,
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
+        ) {
+            Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Start Scan", fontWeight = FontWeight.Bold)
+        }
+    } else {
+        val complete = progress >= 1f || step == 4
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = if (complete) Color(0xFF10B981).copy(alpha = 0.1f) else primaryBlue.copy(alpha = 0.08f),
+            border =
+                BorderStroke(
+                    1.dp,
+                    if (complete) Color(0xFF10B981).copy(alpha = 0.16f) else primaryBlue.copy(alpha = 0.12f),
+                ),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (complete) {
+                    Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981), modifier = Modifier.size(22.dp))
+                } else {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.5.dp,
+                        color = secondaryCyan,
+                        trackColor = secondaryCyan.copy(alpha = 0.12f),
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        if (complete) "Captured" else "Scanning",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        if (step == 4) "Saving your calibration" else "${(progress * 100).toInt()}% complete",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalibrationStepDots(
+    currentStep: Int,
+    accent: Color,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        repeat(4) { index ->
+            val step = index + 1
+            val width by animateDpAsState(
+                targetValue = if (step == currentStep) 28.dp else 8.dp,
+                animationSpec = tween(220),
+                label = "CalibrationDotWidth",
+            )
+            Box(
+                modifier =
+                    Modifier
+                        .width(width)
+                        .height(8.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when {
+                                step == currentStep -> accent
+                                step < currentStep -> Color(0xFF10B981)
+                                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
+                            },
+                        ),
+            )
+        }
+    }
+}
+
+private fun calibrationStepTitle(step: Int): String =
+    when (step) {
+        1 -> "Face forward"
+        2 -> "Check left"
+        3 -> "Check right"
+        else -> "Finish setup"
+    }
+
+private fun calibrationInstructionTitle(
+    waitingForUserToStartStep: Boolean,
+    isComplete: Boolean,
+    step: Int,
+): String =
+    when {
+        isComplete && step < 4 -> "Position captured"
+        step == 4 -> "Saving calibration"
+        waitingForUserToStartStep -> "Ready when you are"
+        else -> "Hold steady"
+    }
+
+private fun calibrationInstruction(
+    step: Int,
+    waitingForUserToStartStep: Boolean,
+    isComplete: Boolean,
+): String =
+    when {
+        step == 4 -> "Keep your phone mounted. This only takes a moment."
+        isComplete -> "Nice. Move naturally to the next guided position."
+        waitingForUserToStartStep -> "Tap Start Scan, then hold this position for a few seconds."
+        step == 1 -> "Look straight ahead and keep your face centered."
+        step == 2 -> "Turn toward your left mirror and hold steady."
+        else -> "Turn toward your right mirror and hold steady."
+    }
+
+private fun calibrationStepIcon(
+    step: Int,
+    messageType: MessageType?,
+): ImageVector =
+    when {
+        messageType == MessageType.SUCCESS -> Icons.Default.CheckCircle
+        step == 4 -> Icons.Default.TaskAlt
+        step == 1 -> Icons.Default.Visibility
+        step == 2 -> Icons.AutoMirrored.Filled.KeyboardArrowLeft
+        else -> Icons.AutoMirrored.Filled.KeyboardArrowRight
+    }
+
+@Composable
+private fun StandbyContent(
+    primaryBlue: Color,
+    secondaryCyan: Color,
+    onStartSession: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color(0xFF2563EB).copy(alpha = 0.08f),
+                            Color(0xFF22D3EE).copy(alpha = 0.03f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ).padding(18.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Surface(
+                modifier = Modifier.size(96.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                tonalElevation = 0.dp,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    LogoSpotlight(logoSize = 64.dp)
+                }
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            Text(
+                "Ready to drive?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Start a trip when your phone is mounted and your face is visible.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(22.dp))
+
+            StartTripButton(
+                primaryBlue = primaryBlue,
+                secondaryCyan = secondaryCyan,
+                onStartSession = onStartSession,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StartTripButton(
+    primaryBlue: Color,
+    secondaryCyan: Color,
+    onStartSession: () -> Unit,
+) {
+    Surface(
+        onClick = onStartSession,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(66.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.Transparent,
+        tonalElevation = 0.dp,
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(Brush.linearGradient(listOf(primaryBlue, secondaryCyan.copy(alpha = 0.9f))))
+                    .padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.22f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(24.dp))
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Start Trip", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Text("Begin live monitoring", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.82f))
+            }
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(22.dp))
+        }
     }
 }
 
 @Composable
 private fun ActionArea(
     isSessionActive: Boolean,
-    primaryBlue: Color,
-    onStartSession: () -> Unit,
     aiMessage: AIMessage?,
     invertMessageForUpsideDown: Boolean,
 ) {
-    if (!isSessionActive) {
-        Button(
-            onClick = onStartSession,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = primaryBlue, contentColor = Color.White),
-        ) {
-            Icon(Icons.Default.PlayArrow, null, tint = Color.White)
-            Spacer(Modifier.width(8.dp))
-            Text("Start Trip", fontWeight = FontWeight.Bold, color = Color.White)
-        }
-    } else {
+    if (isSessionActive) {
         Box(
             modifier =
                 Modifier
@@ -678,101 +1089,140 @@ private fun CalibrationDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(28.dp),
-        title = {
-            Text("Face Calibration", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = primaryBlue)
+        shape = RoundedCornerShape(24.dp),
+        icon = {
+            Box(
+                modifier =
+                    Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(primaryBlue.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.PhotoCamera, null, tint = primaryBlue, modifier = Modifier.size(26.dp))
+            }
         },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        title = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    "To ensure maximum safety, Alvion needs to learn your features in 3 quick positions.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    "Face Calibration",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
                 )
-                listOf(
-                    "Look straight forward",
-                    "Look at your left mirror",
-                    "Look at your right mirror",
-                ).forEachIndexed { index, step ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(modifier = Modifier.size(28.dp), shape = CircleShape, color = primaryBlue.copy(0.1f)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    (index + 1).toString(),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = primaryBlue,
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            step,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
-                }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Note: You can recalibrate any time using the Eye icon if you adjust your seat.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    "Four quick steps",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = primaryBlue,
+                    textAlign = TextAlign.Center,
                 )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Follow each prompt and hold steady while Alvion scans.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                listOf(
+                    "Face forward" to "Look straight ahead",
+                    "Check left" to "Turn toward your left mirror",
+                    "Check right" to "Turn toward your right mirror",
+                    "Finish setup" to "Save your calibration",
+                ).forEachIndexed { index, (title, instruction) ->
+                    CalibrationPreviewStep(
+                        number = index + 1,
+                        title = title,
+                        instruction = instruction,
+                        primaryBlue = primaryBlue,
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = onConfirm,
                 colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
-                Text("Start Calibration", fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Begin Calibration", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Maybe Later", color = Color(0xFF60A5FA)) }
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Later", color = Color(0xFF60A5FA)) }
         },
     )
 }
 
 @Composable
+private fun CalibrationPreviewStep(
+    number: Int,
+    title: String,
+    instruction: String,
+    primaryBlue: Color,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(primaryBlue.copy(alpha = 0.06f))
+                .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(primaryBlue.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(number.toString(), color = primaryBlue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Text(instruction, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
 private fun MetricsGrid(
-    warnings: Int,
+    isSessionActive: Boolean,
     elapsedSeconds: Int,
     speedKmh: Int,
     context: Context,
     primaryBlue: Color,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCardModern(
-                label = "Alertness",
-                value =
-                    if (warnings == 0) {
-                        "Optimal"
-                    } else if (warnings < 3) {
-                        "Caution"
-                    } else {
-                        "Low"
-                    },
-                icon = Icons.Default.Visibility,
-                color =
-                    if (warnings == 0) {
-                        Color(0xFF10B981)
-                    } else if (warnings < 3) {
-                        Color(0xFFF59E0B)
-                    } else {
-                        Color(0xFFEF4444)
-                    },
-                modifier = Modifier.weight(1f),
+    AnimatedContent(
+        targetState = isSessionActive,
+        transitionSpec = {
+            (fadeIn(tween(220)) + expandVertically()).togetherWith(fadeOut(tween(140)) + shrinkVertically())
+        },
+        label = "TripMetricsTransition",
+    ) { active ->
+        if (active) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MetricCardModern("Duration", formatHMS(elapsedSeconds), Icons.Default.Timer, primaryBlue, Modifier.weight(1f))
+                MetricCardModern("Speed", "$speedKmh km/h", Icons.Default.Speed, primaryBlue, Modifier.weight(1f))
+            }
+        } else {
+            EmergencyCallButton(
+                onCall = { makeEmergencyCall(context, "9513034883") },
+                modifier = Modifier.fillMaxWidth(),
             )
-            MetricCardModern("Duration", formatHMS(elapsedSeconds), Icons.Default.Timer, primaryBlue, Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCardModern("Speed", "$speedKmh km/h", Icons.Default.Speed, primaryBlue, Modifier.weight(1f))
-            EmergencyCardModern({ makeEmergencyCall(context, "9513034883") }, Modifier.weight(1f))
         }
     }
 }
@@ -825,45 +1275,65 @@ fun MetricCardModern(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmergencyCardModern(
+fun EmergencyCallButton(
     onCall: () -> Unit,
     modifier: Modifier,
 ) {
     val isDark = isSystemInDarkTheme()
-    Card(
+    val emergencyRed = if (isDark) Color(0xFFEF4444) else Color(0xFFDC2626)
+    Surface(
         onClick = onCall,
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors =
-            CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0xFF450A0A).copy(0.9f) else Color(0xFFFEF2F2).copy(0.9f),
-            ),
+        modifier = modifier.height(72.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = emergencyRed,
+        shadowElevation = 4.dp,
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Phone, null, Modifier.size(14.dp), tint = Color(0xFFEF4444))
-                Spacer(Modifier.width(6.6.dp))
-                Text("Emergency", fontSize = 12.sp, color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.Phone, null, Modifier.size(22.dp), tint = Color.White)
             }
-            Text("SOS Call", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444))
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Emergency Call",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White,
+                )
+                Text("Tap for immediate help", fontSize = 12.sp, color = Color.White.copy(alpha = 0.82f))
+            }
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(22.dp))
         }
     }
 }
 
 @Composable
-fun LiveIndicator() {
+fun LiveIndicator(inverted: Boolean = false) {
     val infiniteTransition = rememberInfiniteTransition()
     val alpha by infiniteTransition.animateFloat(
         initialValue = 0.4f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
     )
+    val liveColor = if (inverted) Color.White else Color.Red
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(Color.Red.copy(alpha = alpha)))
+        Box(Modifier.size(8.dp).clip(CircleShape).background(liveColor.copy(alpha = alpha)))
         Spacer(Modifier.width(6.6.dp))
-        Text("LIVE", color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text("LIVE", color = liveColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }
 
